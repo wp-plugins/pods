@@ -44,6 +44,11 @@ if ('move' == $action)
 }
 elseif ('rename' == $action)
 {
+    if ('id' == $name || 'name' == $name || 'body' == $name)
+    {
+        die("Error: The $name column is not editable.");
+    }
+
     $sql = "
     SELECT
         f.name as field_name, f.coltype, t.name AS module_name
