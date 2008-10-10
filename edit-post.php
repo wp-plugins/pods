@@ -57,8 +57,8 @@ function savePost() {
     data[1] = "body=" + encodeURIComponent(tinyMCE.activeEditor.getContent());
 
     var i = 2;
-    var theval = "";
     jQuery(".form").each(function() {
+        var theval = "";
         var classname = jQuery(this).attr("class").split(" ");
         if ("pick" == classname[1]) {
             jQuery("." + classname[2] + " .active").each(function() {
