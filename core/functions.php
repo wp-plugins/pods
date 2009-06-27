@@ -255,7 +255,8 @@ Shortcode support on WP Posts / Pages
 */
 function pods_shortcode($tags)
 {
-    $tags = shortcode_atts($tags);
+    $pairs = array('name' => null, 'id' => null, 'slug' => null, 'order' => 'id DESC', 'limit' => 15, 'where' => null, 'col' => null, 'template' => null, 'helper' => null);
+    $tags = shortcode_atts($pairs, $tags);
 
     if (empty($tags['name']))
     {
