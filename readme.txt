@@ -78,6 +78,7 @@ OR you can just install it with WordPress by going to Plugins >> Add New >> and 
 = 1.9.6 - June 22, 2011 =
 * Full Details can be found at: http://dev.podscms.org/2011/06/22/pods-1-9-6-security-update-new-features-bug-fixes/
 * Security Update: New security settings section in the Pods >> Setup >> Settings tab to restrict access to the File Browser / Uploader used in publicForm, adjust the settings to fit your site if you experience any problems
+* Changed: PICK Field Multi-select saving now uses data-value="..." instead of value="..." for the divs (WP 3.2 / jQuery 1.6.1 compatibility)
 * Added: New TinyMCE API for use with the new TinyMCE package update at http://podscms.org/packages/tinymce-for-pods/
 * Added: New get_current_url() function to get current page URL
 * Bugfix: Fixed pod_page_exists() bug with $home path
