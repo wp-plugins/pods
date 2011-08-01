@@ -28,24 +28,29 @@ class Pod
         global $wpdb;
 
         $this->wpdb = $wpdb;
-        $this->id = pods_sanitize($id);
-        $this->datatype = pods_sanitize($datatype);
+        $id = pods_sanitize($id);
+        $datatype = pods_sanitize($datatype);
 
         // Get the page variable
         $this->page = pods_url_variable($this->page_var, 'get');
-        $this->page = empty($this->page) ? 1 : max((int)$this->page,1);
+        $this->page = empty($this->page) ? 1 : max((int) $this->page, 1);
 
-        if (!empty($this->datatype)) {
-            $result = pod_query("SELECT id, detail_page FROM @wp_pod_types WHERE name = '$this->datatype' LIMIT 1");
-            $row = mysql_fetch_object($result);
-            $this->datatype_id = $row->id;
-            $this->detail_page = $row->detail_page;
+        if (!empty($datatype)) {
+            $result = pod_query("SELECT id, name, detail_page FROM @wp_pod_types WHERE name = '$datatype' LIMIT 1");
+            if (0 < mysql_num_rows($result)) {
+                $row = mysql_fetch_assoc($result);
+                $this->datatype = $row['name'];
+                $this->datatype_id = $row['id'];
+                $this->detail_page = $row['detail_page'];
 
-            if (null != $this->id) {
-                $this->getRecordById($this->id);
-                $this->id = $this->get_field('id');
-                return;
+                if (null != $id) {
+                    $this->getRecordById($id);
+                    if (!empty($this->data))
+                        $this->id = $this->get_field('id');
+                }
             }
+            else
+                echo "<e>Error: Pod does not exist</e>";
         }
     }
 
@@ -69,6 +74,10 @@ class Pod
      * @since 1.2.0
      */
     function get_field($name, $orderby = null) {
+        if (empty($this->data) && empty($this->datatype_id)) {
+            echo "<e>Error: Pod name invalid, no data available</e>";
+            return null;
+        }
         if (isset($this->data[$name])) {
             return $this->data[$name];
         }
@@ -264,6 +273,10 @@ class Pod
      * @since 1.2.0
      */
     function get_pod_id() {
+        if (empty($this->data) && empty($this->datatype_id)) {
+            echo "<e>Error: Pod name invalid, no data available</e>";
+            return null;
+        }
         if (empty($this->data['pod_id'])) {
             $this->data['pod_id'] = 0;
             $tbl_row_id = (isset($this->data['id'])?$this->data['id']:0);
@@ -322,48 +335,47 @@ class Pod
      */
     function get_dropdown_values($params) {
         global $wpdb;
-        foreach ($params as $key => $val) {
-            ${$key} = $val;
-        }
 
-        $orderby = empty($pick_orderby) ? 'name ASC' : $pick_orderby;
+        $params = (object) $params;
+
+        $params->orderby = empty($params->pick_orderby) ? 'name ASC' : $params->pick_orderby;
 
         // WP taxonomy dropdown
-        if ('wp_taxonomy' == $table) {
-            $where = (false !== $unique_vals) ? "WHERE id NOT IN ($unique_vals)" : '';
-            if (!empty($pick_filter)) {
-                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $pick_filter;
+        if ('wp_taxonomy' == $params->table) {
+            $where = (false !== $params->unique_vals) ? "WHERE id NOT IN ({$params->unique_vals})" : '';
+            if (!empty($params->pick_filter)) {
+                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $params->pick_filter;
             }
 
-            $sql = "SELECT t.term_id AS id, t.name FROM $wpdb->term_taxonomy tx INNER JOIN $wpdb->terms t ON t.term_id = tx.term_id $where ORDER BY $orderby";
+            $sql = "SELECT t.term_id AS id, t.name FROM {$wpdb->term_taxonomy} AS tx INNER JOIN {$wpdb->terms} AS t ON t.term_id = tx.term_id {$where} ORDER BY {$params->orderby}";
         }
         // WP page or post dropdown
-        elseif ('wp_page' == $table || 'wp_post' == $table) {
-            $post_type = substr($table, 3);
-            $where = (false !== $unique_vals) ? "AND id NOT IN ($unique_vals)" : '';
-            if (!empty($pick_filter)) {
-                $where .= " AND $pick_filter";
+        elseif ('wp_page' == $params->table || 'wp_post' == $params->table) {
+            $post_type = substr($params->table, 3);
+            $where = (false !== $params->unique_vals) ? "AND id NOT IN ({$params->unique_vals})" : '';
+            if (!empty($params->pick_filter)) {
+                $where .= " AND {$params->pick_filter}";
             }
 
-            $sql = "SELECT ID as id, post_title AS name FROM $wpdb->posts WHERE post_type = '$post_type' $where ORDER BY $orderby";
+            $sql = "SELECT ID as id, post_title AS name FROM {$wpdb->posts} AS t WHERE post_type = '{$post_type}' {$where} ORDER BY {$params->orderby}";
         }
         // WP user dropdown
-        elseif ('wp_user' == $table) {
-            $where = (false !== $unique_vals) ? "WHERE id NOT IN ($unique_vals)" : '';
-            if (!empty($pick_filter)) {
-                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $pick_filter;
+        elseif ('wp_user' == $params->table) {
+            $where = (false !== $params->unique_vals) ? "WHERE id NOT IN ({$params->unique_vals})" : '';
+            if (!empty($params->pick_filter)) {
+                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $params->pick_filter;
             }
 
-            $sql = "SELECT ID as id, display_name AS name FROM $wpdb->users $where ORDER BY $orderby";
+            $sql = "SELECT ID as id, display_name AS name FROM {$wpdb->users} AS t {$where} ORDER BY {$params->orderby}";
         }
         // Pod table dropdown
         else {
-            $where = (false !== $unique_vals) ? "WHERE id NOT IN ($unique_vals)" : '';
-            if (!empty($pick_filter)) {
-                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $pick_filter;
+            $where = (false !== $params->unique_vals) ? "WHERE id NOT IN ({$params->unique_vals})" : '';
+            if (!empty($params->pick_filter)) {
+                $where .= (empty($where) ? ' WHERE ' : ' AND ') . $params->pick_filter;
             }
 
-            $sql = "SELECT * FROM `@wp_pod_tbl_$table` $where ORDER BY $orderby";
+            $sql = "SELECT * FROM `@wp_pod_tbl_{$params->table}` AS t {$where} ORDER BY {$params->orderby}";
         }
 
         //override with custom dropdown values
@@ -372,11 +384,11 @@ class Pod
         $val = array();
         $result = pod_query($sql);
         while ($row = mysql_fetch_assoc($result)) {
-            if (!empty($tbl_row_ids)) {
-                $row['active'] = in_array($row['id'], $tbl_row_ids);
+            if (!empty($params->tbl_row_ids)) {
+                $row['active'] = in_array($row['id'], $params->tbl_row_ids);
             }
             else {
-                if (isset($_GET[$field_name]) && $row['id'] == $_GET[$field_name]) {
+                if (isset($_GET[$params->field_name]) && $row['id'] == $_GET[$params->field_name]) {
                     $row['active'] = true;
                 }
                 else {
@@ -392,6 +404,10 @@ class Pod
      * Return a single record
      */
     function getRecordById($id) {
+        if (empty($this->datatype_id)) {
+            echo "<e>Error: Pod name invalid</e>";
+            return null;
+        }
         $datatype = $this->datatype;
         if ($this->is_val($datatype)) {
             if (is_numeric($id)) {
@@ -422,6 +438,10 @@ class Pod
      * Search and filter records
      */
     function findRecords($orderby = 't.id DESC', $rows_per_page = 15, $where = null, $sql = null) {
+        if (empty($this->datatype_id)) {
+            echo "<e>Error: Pod name invalid</e>";
+            return null;
+        }
         global $wpdb;
         $join = $groupby = $having = '';
         $params = null;
@@ -429,23 +449,24 @@ class Pod
         if(is_array($orderby)) {
             $defaults = array('select'=>$select,'join'=>$join,'search'=>$this->search,'where'=>$where,'groupby'=>$groupby,'having'=>$having,'orderby'=>'t.id DESC','limit'=>$rows_per_page,'page'=>$this->page,'sql'=>$sql);
             $params = (object) array_merge($defaults,$orderby);
-            $select = $params->select;
+            if (0 < strlen($params->select))
+                $select = $params->select;
             $join = $params->join;
             $this->search = $params->search;
             $where = $params->where;
             $groupby = $params->groupby;
             $having = $params->having;
             $orderby = $params->orderby;
-            $rows_per_page = $params->limit;
-            $this->page = $params->page;
+            $rows_per_page = (int) $params->limit;
+            $this->page = (int) $params->page;
             $sql = $params->sql;
         }
-        $page = $this->page;
+        $page = (int) $this->page;
         if (-1 == $rows_per_page)
             $page = 1;
         $datatype = $this->datatype;
         $datatype_id = $this->datatype_id;
-        $this->rpp = $rows_per_page;
+        $this->rpp = (int) $rows_per_page;
 
         if (empty($sql)) {
             $limit = $search = '';
@@ -547,20 +568,20 @@ class Pod
 
             $sql = "
             SELECT
-                SQL_CALC_FOUND_ROWS DISTINCT $select
+                SQL_CALC_FOUND_ROWS DISTINCT {$select}
             FROM
                 @wp_pod p
-            $join
             INNER JOIN
-                `@wp_pod_tbl_$datatype` t ON t.id = p.tbl_row_id
+                `@wp_pod_tbl_{$datatype}` t ON t.id = p.tbl_row_id
+            $join
             WHERE
-                p.datatype = $datatype_id
-                $search
-                $where
-            $groupby
-            $having
-            $orderby
-            $limit
+                p.datatype = {$datatype_id}
+                {$search}
+                {$where}
+            {$groupby}
+            {$having}
+            {$orderby}
+            {$limit}
             ";
         }
         $this->sql = $sql;
@@ -579,9 +600,10 @@ class Pod
      */
     function getTotalRows() {
         if (false === is_numeric($this->total_rows)) {
-            if ($row = mysql_fetch_array($this->total_rows)) {
+            if (is_resource($this->total_rows) && $row = mysql_fetch_array($this->total_rows))
                 $this->total_rows = $row[0];
-            }
+            else
+                $this->total_rows = 0;
         }
         return $this->total_rows;
     }
@@ -600,6 +622,10 @@ class Pod
      * Display HTML for all datatype fields
      */
     function showform($pod_id = null, $public_columns = null, $label = 'Save changes') {
+        if (empty($this->datatype_id)) {
+            echo "<e>Error: Pod name invalid</e>";
+            return null;
+        }
         $cache = PodCache::instance();
 
         $datatype = $this->datatype;
@@ -623,8 +649,10 @@ class Pod
         }
 
         $result = pod_query("SELECT * FROM @wp_pod_fields WHERE datatype = $datatype_id $where ORDER BY weight ASC");
+        $public_columns = array();
         while ($row = mysql_fetch_assoc($result)) {
             $fields[$row['name']] = $row;
+            $public_columns[] = $row['name'];
         }
 
         // Re-order the fields if a public form
