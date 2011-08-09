@@ -3,7 +3,7 @@
 Plugin Name: Pods CMS Framework
 Plugin URI: http://podscms.org/
 Description: Pods is a CMS framework for creating, managing, and deploying customized content types.
-Version: 1.9.8
+Version: 1.10.7
 Author: The Pods CMS Team
 Author URI: http://podscms.org/about/
 
@@ -23,24 +23,33 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-define('PODS_VERSION', 198);
-define('PODS_VERSION_FULL', implode('.', str_split(PODS_VERSION)));
-define('PODS_URL', rtrim(plugin_dir_url(__FILE__),'/')); // non-trailing slash being deprecated in 2.0
-define('PODS_DIR', rtrim(plugin_dir_path(__FILE__),'/')); // non-trailing slash being deprecated in 2.0
-define('WP_INC_URL', rtrim(includes_url(),'/')); // non-trailing slash being deprecated in 2.0
+
+define('PODS_VERSION_FULL', '1.10.7');
+define('PODS_WP_VERSION_MINIMUM', '3.1');
+define('PODS_PHP_VERSION_MINIMUM', '5.2.4');
+define('PODS_MYSQL_VERSION_MINIMUM', '5.0');
+
+define('PODS_URL', rtrim(plugin_dir_url(__FILE__), '/')); // non-trailing slash being deprecated in 2.0
+define('PODS_DIR', rtrim(plugin_dir_path(__FILE__), '/')); // non-trailing slash being deprecated in 2.0
+define('WP_INC_URL', rtrim(includes_url(), '/')); // non-trailing slash being deprecated in 2.0
 
 require_once(PODS_DIR . '/functions.php');
 
-require_once(PODS_DIR . '/classes/PodCache.php');
+define('PODS_VERSION', pods_point_to_version(PODS_VERSION_FULL));
+
 require_once(PODS_DIR . '/classes/PodInit.php');
 
 require_once(PODS_DIR . '/classes/Pod.php');
 require_once(PODS_DIR . '/classes/PodAPI.php');
 
+require_once(PODS_DIR . '/classes/PodCache.php');
+
+require_once(PODS_DIR . '/pods-ui.php');
+
 global $pods_cache, $cache, $pods_init;
-if (!defined('SHORTINIT') || !SHORTINIT) {
+if (false !== pods_compatible() && (!defined('SHORTINIT') || !SHORTINIT)) {
     require_once(PODS_DIR . '/deprecated.php'); // DEPRECATED IN 2.0
-    
+
     $pods_cache = PodCache::instance();
     $cache = &$pods_cache; // DEPRECATED IN 2.0
     $pods_init = new PodInit();
