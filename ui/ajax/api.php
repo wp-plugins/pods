@@ -3,16 +3,20 @@ ob_start();
 require_once(preg_replace("/wp-content.*/","wp-load.php",__FILE__));
 ob_end_clean();
 
-header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+if (false === headers_sent()) {
+    if ('' == session_id())
+        @session_start();
+    header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+}
 
 // Sanitize input
-$params = array();
+$params = stripslashes_deep($_POST);
 foreach ($_POST as $key => $val) {
-    $params[$key] = mysql_real_escape_string(stripslashes(trim($val)));
+    $params[$key] = esc_sql(trim($val));
 }
 
 $methods = array(
-    'save_pod' => array('priv' => 'manage_pods'),
+    'save_pod' => array('priv' => 'manage_pods', 'format' => 'json'),
     'save_column' => array('priv' => 'manage_pods'),
     'save_template' => array('priv' => 'manage_templates'),
     'save_page' => array('priv' => 'manage_pod_pages'),
@@ -20,6 +24,7 @@ $methods = array(
     'save_roles' => array('priv' => 'manage_roles'),
     'save_menu_item' => array('priv' => 'manage_menu'),
     'save_pod_item' => array('processor' => 'process_save_pod_item'),
+    'reorder_pod_item' => array('access_pod_specific' => true),
     'drop_pod' => array('priv' => 'manage_pods'),
     'drop_column' => array('priv' => 'manage_pods'),
     'drop_template' => array('priv' => 'manage_templates'),
@@ -40,7 +45,8 @@ $methods = array(
     'import_package' => array('priv' => 'manage_packages'),
     'validate_package' => array('priv' => 'manage_packages'),
     'replace_package' => array('priv' => 'manage_packages'),
-    'security_settings' => array('priv' => 'manage_settings')
+    'security_settings' => array('priv' => 'manage_settings'),
+    'fix_wp_pod' => array('priv' => 'manage_settings')
 );
 
 $api = new PodAPI();
@@ -55,44 +61,48 @@ if (isset($methods[$action])) {
     $access_pod_specific = isset($methods[$action]['access_pod_specific']) ? $methods[$action]['access_pod_specific'] : null;
 
     if($access_pod_specific === true) {
-        if (isset($params->tbl_row_id)) {
-            if (isset($params->datatype_id)) {
-                $select_dt = "p.datatype = '$params->datatype_id'";
+        if (isset($params->datatype))
+            $priv_val = 'pod_' . $params->datatype;
+        else {
+            if (isset($params->tbl_row_id)) {
+                if (isset($params->datatype_id)) {
+                    $select_dt = "p.datatype = '$params->datatype_id'";
+                }
+                else {
+                    $select_dt = "t.name = '$params->datatype'";
+                }
+                $sql = "
+                SELECT
+                    p.id AS pod_id, p.tbl_row_id, t.id, t.name AS datatype
+                FROM
+                    @wp_pod p
+                INNER JOIN
+                    @wp_pod_types t ON t.id = p.datatype
+                WHERE
+                    p.tbl_row_id = $params->tbl_row_id AND
+                    $select_dt
+                LIMIT
+                    1
+                ";
             }
             else {
-                $select_dt = "t.name = '$params->datatype'";
+                $sql = "
+                SELECT
+                    p.id AS pod_id, p.tbl_row_id, t.id, t.name AS datatype
+                FROM
+                    @wp_pod p
+                INNER JOIN
+                    @wp_pod_types t ON t.id = p.datatype
+                WHERE
+                    p.id = $params->pod_id
+                LIMIT
+                    1
+                ";
             }
-            $sql = "
-            SELECT
-                p.id AS pod_id, p.tbl_row_id, t.id, t.name AS datatype
-            FROM
-                @wp_pod p
-            INNER JOIN
-                @wp_pod_types t ON t.id = p.datatype
-            WHERE
-                p.tbl_row_id = $params->tbl_row_id AND
-                $select_dt
-            LIMIT
-                1
-            ";
+            $result = pod_query($sql);
+            $row = mysql_fetch_assoc($result);
+            $priv_val = 'pod_' . $row['datatype'];
         }
-        else {
-            $sql = "
-            SELECT
-                p.id AS pod_id, p.tbl_row_id, t.id, t.name AS datatype
-            FROM
-                @wp_pod p
-            INNER JOIN
-                @wp_pod_types t ON t.id = p.datatype
-            WHERE
-                p.id = $params->pod_id
-            LIMIT
-                1
-            ";
-        }
-        $result = pod_query($sql);
-        $row = mysql_fetch_assoc($result);
-        $priv_val = 'pod_'.$row['datatype'];
         if (!pods_access($priv_val) && !pods_access('manage_content'))
             die('<e>Access denied');
     }
