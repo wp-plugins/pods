@@ -224,7 +224,7 @@ function pods_ui_manage ($obj)
     {
         $access = $object->ui['edit_where'];
         $continue_edit = true;
-        $edit = new Pod($object->datatype,pods_ui_var('id'.$object->ui['num']));
+        $edit = new Pod($object->datatype, pods_ui_var('id'.$object->ui['num']));
         if($edit->data!==false)
         {
             $check = pods_ui_verify_access($edit,$access,'edit');
@@ -251,7 +251,7 @@ function pods_ui_manage ($obj)
         }
         else
         {
-            pods_ui_message($object->ui['item'].' <strong>not found</strong>, cannot edit.',2);
+            pods_ui_message($object->ui['item'].' <strong>item not found</strong>, cannot edit.',2);
         }
     }
     elseif($object->ui['action']=='duplicate')
@@ -700,7 +700,29 @@ function pods_ui_manage ($obj)
 <?php
             }
 ?>
-            Show per page: <?php $ipp = 10; if($object->ui['limit']==$ipp){ ?><span class="page-numbers current"><?php echo $ipp; ?></span><?php } else { ?><a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a><?php } ?> <?php $ipp = 25; if($object->ui['limit']==$ipp){ ?><span class="page-numbers current"><?php echo $ipp; ?></span><?php } else { ?><a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>'')); ?>"><?php echo $ipp; ?></a><?php } ?> <?php $ipp = 50; if($object->ui['limit']==$ipp){ ?><span class="page-numbers current"><?php echo $ipp; ?></span><?php } else { ?><a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a><?php } ?> <?php $ipp = 100; if($object->ui['limit']==$ipp){ ?><span class="page-numbers current"><?php echo $ipp; ?></span><?php } else { ?><a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a><?php } ?> <?php $ipp = 200; if($object->ui['limit']==$ipp){ ?><span class="page-numbers current"><?php echo $ipp; ?></span><?php } else { ?><a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a><?php } ?>&nbsp;&nbsp;|&nbsp;&nbsp;
+            Show per page:
+<?php $ipp = 10; if($object->ui['limit']==$ipp){ ?>
+            <span class="page-numbers current"><?php echo $ipp; ?></span>
+<?php } else { ?>
+            <a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a>
+<?php } $ipp = 25; if($object->ui['limit']==$ipp){ ?>
+            <span class="page-numbers current"><?php echo $ipp; ?></span>
+<?php } else { ?>
+            <a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a>
+<?php } $ipp = 50; if($object->ui['limit']==$ipp){ ?>
+            <span class="page-numbers current"><?php echo $ipp; ?></span>
+<?php } else { ?>
+            <a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a>
+<?php } $ipp = 100; if($object->ui['limit']==$ipp){ ?>
+            <span class="page-numbers current"><?php echo $ipp; ?></span>
+<?php } else { ?>
+            <a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a>
+<?php } $ipp = 200; if($object->ui['limit']==$ipp){ ?>
+            <span class="page-numbers current"><?php echo $ipp; ?></span>
+<?php } else { ?>
+            <a href="<?php echo pods_ui_var_update(array('limit'.$object->ui['num']=>$ipp,'pg'.$object->ui['num']=>''),false,false); ?>"><?php echo $ipp; ?></a>
+<?php } ?>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
 <?php pods_ui_pagination($object); ?>
         </div>
 <?php
@@ -817,7 +839,10 @@ function pods_ui_table ($object,$rows=null)
                 }
                 if(is_array($column)&&isset($column['display_helper']))
                 {
-                    $value = $object->pod_helper($column['display_helper'],$object->get_field($key),$key);
+                    if (function_exists($column['display_helper']))
+                        $value = $column['display_helper']($object->get_field($key), $key, $object);
+                    else
+                        $value = $object->pod_helper($column['display_helper'],$object->get_field($key),$key);
                 }
                 $rows[$i][$key] = $value;
             }
@@ -981,12 +1006,14 @@ function pods_ui_table ($object,$rows=null)
             if ($object->ui['sortable']===null&&(!isset($column['sortable']) || false !== $column['sortable'])) {
                 if (pods_ui_var('sort'.$object->ui['num'])==pods_ui_coltype($key,$object))
                     $class .= ' sorted';
-                else
+                else {
                     $class .= ' sortable';
+                    $dir = 'asc';
+                }
                 if (pods_ui_var('sort'.$object->ui['num'])==pods_ui_coltype($key,$object)&&$dir=='asc')
                     $class .= ' asc';
                 else
-                    $class .= ' ' . (('asc' == $dir) ? 'desc' : 'asc');
+                    $class .= ' ' . $dir;
             }
 ?>
             <th scope="col"<?php echo $id; ?> class="manage-column<?php echo $class; ?>">
