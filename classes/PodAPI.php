@@ -334,6 +334,8 @@ class PodAPI
      * @since 1.7.9
      */
     function save_template($params) {
+        if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
+            $params = pods_sanitize($params);
         $params = (object) str_replace('@wp_', '{prefix}', $params);
 
         // Set defaults
@@ -380,6 +382,8 @@ class PodAPI
      * @since 1.7.9
      */
     function save_page($params) {
+        if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
+            $params = pods_sanitize($params);
         $params = (object) str_replace('@wp_', '{prefix}', $params);
 
         // Set defaults
@@ -427,6 +431,8 @@ class PodAPI
      * @since 1.7.9
      */
     function save_helper($params) {
+        if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
+            $params = pods_sanitize($params);
         $params = (object) str_replace('@wp_', '{prefix}', $params);
 
         // Set defaults
@@ -469,6 +475,8 @@ class PodAPI
      * @since 1.7.9
      */
     function save_roles($params) {
+        if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
+            $params = pods_sanitize($params);
         $roles = array();
         foreach ($params as $key => $val) {
             if ('action' != $key) {
@@ -526,6 +534,8 @@ class PodAPI
      * @since 1.7.9
      */
     function save_pod_item($params) {
+        if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
+            $params = pods_sanitize($params);
         $params = (object) str_replace('@wp_', '{prefix}', $params);
 
         // Support for multiple save_pod_item operations at the same time

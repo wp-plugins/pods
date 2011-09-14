@@ -67,11 +67,9 @@ class Pod
                 $this->detail_page = $row['detail_page'];
 
                 if (null !== $id) {
-                    if (is_array($id)) {
+                    if (is_array($id) || is_object($id))
                         $this->findRecords($id);
-                    }
                     else {
-                        $id = absint($id);
                         $this->getRecordById($id);
                         if (!empty($this->data))
                             $this->id = $this->get_field('id');
