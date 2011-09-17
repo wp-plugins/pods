@@ -396,7 +396,7 @@ class Pod
         elseif (false === $content && false !== $function_or_file && isset($function_or_file['file']))
             locate_template($function_or_file['file'], true, true);
         elseif (false !== $content) {
-            if (!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL)
+            if ((!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL))
                 eval("?>$content");
             else
                 echo $content;
@@ -1196,9 +1196,7 @@ class Pod
             $function_or_file = false;
         else {
             $function_or_file = $template;
-            $check_function = $function_or_file;
-            if ((!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE) && (!defined('PODS_TEMPLATE_FUNCTIONS') || !PODS_TEMPLATE_FUNCTIONS))
-                $check_function = false;
+            $check_function = false;
             $check_file = null;
             if ((!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE) && (!defined('PODS_TEMPLATE_FILES') || !PODS_TEMPLATE_FILES))
                 $check_file = false;
@@ -1220,17 +1218,7 @@ class Pod
             }
         }
 
-        if (empty($code) && false !== $function_or_file && isset($function_or_file['function'])) {
-            // Only detail templates need $this->id
-            if (empty($this->id)) {
-                while ($this->fetchRecord()) {
-                    echo $function_or_file['function']($this);
-                }
-            }
-            else
-                echo $function_or_file['function']($this);
-        }
-        elseif (empty($code) && false !== $function_or_file && isset($function_or_file['file'])) {
+        if (empty($code) && false !== $function_or_file && isset($function_or_file['file'])) {
             // Only detail templates need $this->id
             if (empty($this->id)) {
                 while ($this->fetchRecord()) {
@@ -1266,12 +1254,13 @@ class Pod
      */
     function parse_template_string($in) {
         ob_start();
-        $out = preg_replace_callback("/({@(.*?)})/m", array($this, "parse_magic_tags"), $in);
         if ((!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL))
-            eval("?>$out");
+            eval("?>$in");
         else
-            echo $out;
-        return apply_filters('pods_parse_template_string', ob_get_clean(), $in, $this);
+            echo $in;
+        $out = ob_get_clean();
+        $out = preg_replace_callback("/({@(.*?)})/m", array($this, "parse_magic_tags"), $out);
+        return apply_filters('pods_parse_template_string', $out, $in, $this);
     }
 
     /**
@@ -1287,22 +1276,23 @@ class Pod
             $before = trim($before);
             $after = trim($after);
         }
-        if ('type' == $name) {
-            return $this->datatype;
-        }
-        elseif ('detail_url' == $name) {
-            return get_bloginfo('url') . '/' . $this->parse_template_string($this->detail_page);
-        }
-        else {
+
+        if ('type' == $name)
+            $value = $this->datatype;
+        elseif ('detail_url' == $name)
+            $value = get_bloginfo('url') . '/' . $this->parse_template_string($this->detail_page);
+        else
             $value = $this->get_field($name);
 
-            // Use helper if necessary
-            if (!empty($helper)) {
-                $value = $this->pod_helper($helper, $value, $name);
-            }
-            if (null != $value && false !== $value) {
-                return $before . $value . $after;
-            }
-        }
+        // Use helper if necessary
+        if (!empty($helper))
+            $value = $this->pod_helper($helper, $value, $name);
+
+        // Clean out PHP in case it exists
+        $value = str_replace(array('<?php', '<?', '?>'), array('&lt;?php', '&lt;?', '?&gt;'), $value);
+
+        $value = apply_filters('pods_parse_magic_tags', $value, $name, $helper, $before, $after);
+        if (null != $value && false !== $value)
+            return $before . $value . $after;
     }
 }

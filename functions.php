@@ -592,9 +592,7 @@ function pods_content() {
     $content = false;
     if (false !== $pod_page_exists) {
         $function_or_file = str_replace('*', 'w', $pod_page_exists['uri']);
-        $check_function = 'pods_page_' . $function_or_file;
-        if ((!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE) && (!defined('PODS_PAGE_FUNCTIONS') || !PODS_PAGE_FUNCTIONS))
-            $check_function = false;
+        $check_function = false;
         $check_file = null;
         if ((!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE) && (!defined('PODS_PAGE_FILES') || !PODS_PAGE_FILES))
             $check_file = false;
@@ -607,9 +605,7 @@ function pods_content() {
             $content = $pod_page_exists['phpcode'];
 
         ob_start();
-        if (false === $content && false !== $function_or_file && isset($function_or_file['function']))
-            echo $function_or_file['function']($pod_page_exists);
-        elseif (false === $content && false !== $function_or_file && isset($function_or_file['file']))
+        if (false === $content && false !== $function_or_file && isset($function_or_file['file']))
             locate_template($function_or_file['file'], true, true);
         elseif (false !== $content) {
             if (!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL)

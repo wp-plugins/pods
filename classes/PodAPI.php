@@ -1621,7 +1621,10 @@ class PodAPI
             $output = true;
         }
         if (!is_array($data)) {
-            $data = @json_decode(stripslashes($data), true);
+            $json_data = @json_decode($data, true);
+            if (!is_array($json_data))
+                $json_data = @json_decode(stripslashes($data), true);
+            $data = $json_data;
         }
         if (!is_array($data) || empty($data)) {
             return false;
@@ -1644,6 +1647,7 @@ class PodAPI
             $pod_columns = '';
             foreach ($data['pods'] as $pod) {
                 $pod = pods_sanitize($pod);
+
                 $table_columns = array();
                 $pod_fields = $pod['fields'];
                 unset($pod['fields']);
@@ -1668,18 +1672,20 @@ class PodAPI
                 foreach ($pod_fields as $fieldval) {
                     // Escape the values
                     foreach ($fieldval as $k => $v) {
-                        $fieldval[$k] = empty($v) ? 'null' : pods_sanitize($v);
+                        if (empty($v))
+                            $v = 'null';
+                        else
+                            $v = pods_sanitize($v);
+                        $fieldval[$k] = $v;
                     }
 
                     // Store all table columns
-                    if ('pick' != $fieldval['coltype'] && 'file' != $fieldval['coltype']) {
+                    if ('pick' != $fieldval['coltype'] && 'file' != $fieldval['coltype'])
                         $table_columns[$fieldval['name']] = $fieldval['coltype'];
-                    }
 
                     $fieldval['datatype'] = $dt;
-                    if (empty($field_columns)) {
+                    if (empty($field_columns))
                         $field_columns = implode("`,`", array_keys($fieldval));
-                    }
                     $tupples[] = implode("','", $fieldval);
                 }
                 $tupples = implode("'),('", $tupples);
@@ -1703,7 +1709,8 @@ class PodAPI
             foreach ($data['templates'] as $template) {
                 $defaults = array('name' => '', 'code' => '');
                 $params = array_merge($defaults, $template);
-                $params = pods_sanitize($params);
+                if (!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE)
+                    $params = pods_sanitize($params);
                 if (false !== $replace) {
                     $existing = $this->load_template(array('name' => $params['name']));
                     if (is_array($existing))
@@ -1720,7 +1727,8 @@ class PodAPI
             foreach ($data['pod_pages'] as $pod_page) {
                 $defaults = array('uri' => '', 'title' => '', 'phpcode' => '', 'precode' => '', 'page_template' => '');
                 $params = array_merge($defaults, $pod_page);
-                $params = pods_sanitize($params);
+                if (!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE)
+                    $params = pods_sanitize($params);
                 if (false !== $replace) {
                     $existing = $this->load_page(array('uri' => $params['uri']));
                     if (is_array($existing))
@@ -1744,7 +1752,8 @@ class PodAPI
                 }
                 $defaults = array('name' => '', 'helper_type' => 'display', 'phpcode' => '');
                 $params = array_merge($defaults, $helper);
-                $params = pods_sanitize($params);
+                if (!defined('PODS_STRICT_MODE') || !PODS_STRICT_MODE)
+                    $params = pods_sanitize($params);
                 if (false !== $replace) {
                     $existing = $this->load_helper(array('name' => $params['name']));
                     if (is_array($existing))
@@ -1798,17 +1807,19 @@ class PodAPI
             $data = $data['data'];
             $output = true;
         }
-        if (is_array($data)) {
+        if (is_array($data))
             $data = esc_textarea(json_encode($data));
-        }
+
         $found = array();
         $warnings = array();
 
         update_option('pods_package', $data);
 
-        $data = @json_decode(stripslashes($data), true);
+        $json_data = @json_decode($data, true);
+        if (!is_array($json_data))
+            $json_data = @json_decode(stripslashes($data), true);
 
-        if (!is_array($data) || empty($data)) {
+        if (!is_array($json_data) || empty($json_data)) {
             $warnings[] = "This is not a valid package. Please try again.";
             if (true===$output) {
                 echo '<e><br /><div id="message" class="error fade"><p>This is not a valid package. Please try again.</p></div></e>';
@@ -1817,6 +1828,7 @@ class PodAPI
             else
                 return $warnings;
         }
+        $data = $json_data;
 
         if (0 < strlen($data['meta']['version']) && false === strpos($data['meta']['version'], '.') && (int) $data['meta']['version'] < 1000) { // older style
             $data['meta']['version'] = implode('.', str_split($data['meta']['version']));

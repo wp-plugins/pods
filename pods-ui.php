@@ -205,7 +205,7 @@ function pods_ui_manage ($obj)
     if(!is_numeric($object->ui['num']))
     {
 ?>
-<div class="wrap">
+<div class="wrap" id="pods_ui_manage">
     <div id="icon-edit-pages" class="icon32"<?php if(null!==$object->ui['icon']){ ?> style="background-position:0 0;background-image:url(<?php echo $object->ui['icon']; ?>);"<?php } ?>><br /></div>
 <?php
     }
@@ -967,7 +967,7 @@ function pods_ui_table ($object,$rows=null)
     if(is_array($rows))
     {
 ?>
-<table class="widefat page fixed" cellspacing="0">
+<table id="pods_ui_<?php echo $object->datatype; ?>" class="widefat page fixed" cellspacing="0">
     <thead>
         <tr>
 <?php
@@ -1015,6 +1015,7 @@ function pods_ui_table ($object,$rows=null)
                 else
                     $class .= ' ' . $dir;
             }
+            $class .= ' pods-ui-' . $column;
 ?>
             <th scope="col"<?php echo $id; ?> class="manage-column<?php echo $class; ?>">
 <?php
@@ -1067,6 +1068,7 @@ function pods_ui_table ($object,$rows=null)
             {
                 $class = ' column-'.$id;
             }
+            $class .= ' pods-ui-' . $column;
             $label = $column;
             if(is_array($column)&&isset($column['label']))
             {
@@ -1149,9 +1151,10 @@ function pods_ui_table ($object,$rows=null)
                 {
                     $id = 'author'; $flag=true;
                 }
+                $class = 'pods-ui-' . $column;
                 if(0<strlen($id))
                 {
-                    $class = ' class="'.$id.' column-'.$id.'"';
+                    $class = $id . ' column-' . $id . ' ' . $class;
                 }
                 $row_old = false;
                 if(is_array($row[$key]))
@@ -1194,7 +1197,7 @@ function pods_ui_table ($object,$rows=null)
                     }
                 }
 ?>
-            <td<?php echo $class; ?>><?php echo apply_filters('pods_ui_cell_value',$row[$key],$key,$row,$object); ?></td>
+            <td class="<?php echo $class; ?>"><?php echo apply_filters('pods_ui_cell_value',$row[$key],$key,$row,$object); ?></td>
 <?php
             }
 ?>
@@ -1234,7 +1237,7 @@ function pods_ui_table_reorder ($object)
 <script type="text/javascript">
 function pods_ui_reorder () {
     var order = "";
-    jQuery("table#pods_ui_reorder tbody tr").each(function() {
+    jQuery("table.pods_ui_reorder tbody tr").each(function() {
         order += jQuery(this).attr("id").substr(5) + ",";
     });
     order = order.slice(0, -1);
@@ -1304,7 +1307,7 @@ function pods_ui_reorder () {
     if(is_array($rows))
     {
 ?>
-<table class="widefat page fixed" id="pods_ui_reorder" cellspacing="0">
+<table id="pods_ui_<?php echo $object->datatype; ?>" class="widefat page fixed pods_ui_reorder" cellspacing="0">
     <thead>
         <tr>
 <?php
@@ -1340,6 +1343,7 @@ function pods_ui_reorder () {
             }
             $dir = (($object->ui['sortable']===null&&pods_ui_var('sort'.$object->ui['num'])==pods_ui_coltype($key,$object)&&pods_ui_var('sortdir'.$object->ui['num'])=='desc')?'asc':'desc');
             $sort = ($object->ui['sortable']===null?pods_ui_coltype($key,$object):null);
+            $class .= ' pods-ui-' . $column;
 ?>
             <th scope="col"<?php echo $id; ?> class="manage-column<?php echo $class; ?>"><?php if($object->ui['sortable']===null&&$sort!==null){ ?><a href="<?php echo pods_ui_var_update(array('sort'.$object->ui['num']=>$sort,'sortdir'.$object->ui['num']=>$dir),false,false); ?>"><?php } echo $label; if($object->ui['sortable']===null){ ?></a><?php } ?></th>
 <?php
@@ -1380,6 +1384,7 @@ function pods_ui_reorder () {
             {
                 $label = $column['label'];
             }
+            $class .= ' pods-ui-' . $column;
 ?>
             <th scope="col" class="manage-column<?php echo $class; ?>"><?php echo apply_filters('pods_ui_cell_header',$label,$key,$column,$object); ?></th>
 <?php
@@ -1419,9 +1424,10 @@ function pods_ui_reorder () {
                 {
                     $id = 'author'; $flag=true;
                 }
+                $class = 'pods-ui-' . $column;
                 if(0<strlen($id))
                 {
-                    $class = ' class="'.$id.' column-'.$id.'"';
+                    $class = $id . ' column-' . $id . ' ' . $class;
                 }
                 $row_old = false;
                 if(is_array($row[$key]))
@@ -1464,7 +1470,7 @@ function pods_ui_reorder () {
                     }
                 }
 ?>
-            <td<?php echo $class; ?>><?php echo apply_filters('pods_ui_cell_value',$row[$key],$key,$row,$object); ?></td>
+            <td class="<?php echo $class; ?>"><?php echo apply_filters('pods_ui_cell_value',$row[$key],$key,$row,$object); ?></td>
 <?php
             }
 ?>
