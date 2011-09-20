@@ -3,7 +3,7 @@
 Plugin Name: Pods CMS Framework
 Plugin URI: http://podscms.org/
 Description: Pods is a CMS framework for creating, managing, and deploying customized content types.
-Version: 1.12-rc-4
+Version: 1.12-rc-5
 Author: The Pods CMS Team
 Author URI: http://podscms.org/about/
 
@@ -24,7 +24,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-define('PODS_VERSION', '1.12-rc-4');
+define('PODS_VERSION', '1.12-rc-5');
 if (!defined('PODS_WP_VERSION_MINIMUM'))
     define('PODS_WP_VERSION_MINIMUM', '3.1');
 if (!defined('PODS_PHP_VERSION_MINIMUM'))
@@ -49,8 +49,21 @@ require_once(PODS_DIR . '/pods-ui.php');
 
 global $pods_cache, $cache, $pods_init;
 if (false !== pods_compatible() && (!defined('SHORTINIT') || !SHORTINIT)) {
-    require_once(PODS_DIR . '/deprecated.php'); // DEPRECATED IN 2.0
+    // JSON support
+    if (!function_exists('json_encode')) {
+        require_once(ABSPATH . '/wp-includes/js/tinymce/plugins/spellchecker/classes/utils/JSON.php');
 
+        function json_encode($str) {
+            $json = new Moxiecode_JSON();
+            return $json->encode($str);
+        }
+
+        function json_decode($str) {
+            $json = new Moxiecode_JSON();
+            return $json->decode($str);
+        }
+    }
+    
     $pods_cache = PodCache::instance();
     $cache = &$pods_cache; // DEPRECATED IN 2.0
     $pods_init = new PodInit();

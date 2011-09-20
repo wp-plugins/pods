@@ -24,6 +24,7 @@ class PodInit
         }
 
         add_action('init', array($this, 'init'));
+        add_action('after_setup_theme', array($this, 'deprecated'));
         add_action('admin_menu', array($this, 'admin_menu'), 99);
         add_action('template_redirect', array($this, 'template_redirect'));
         add_action('delete_attachment', array($this, 'delete_attachment'));
@@ -373,5 +374,9 @@ class PodInit
             wp_print_scripts('jquery-ui-sortable');
         if (null === apply_filters('pods_admin_content', null))
             include PODS_DIR . '/ui/manage_content.php';
+    }
+
+    function deprecated() {
+        require_once(PODS_DIR . '/deprecated.php'); // DEPRECATED IN 2.0
     }
 }

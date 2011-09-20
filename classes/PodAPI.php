@@ -438,7 +438,7 @@ class PodAPI
         // Set defaults
         $params = (object) array_merge(array('id' => '',
                                              'name' => '',
-                                             'helper_type' => 'display',
+                                             //'helper_type' => 'display',
                                              'phpcode' => ''),
                                        (array) $params);
 
@@ -450,6 +450,8 @@ class PodAPI
             if (empty($params->name)) {
                 return $this->oh_snap('<e>Enter a helper name');
             }
+            if (!isset($params->helper_type) || empty($params->helper_type))
+                $params->helper_type = 'display';
 
             $sql = "SELECT id FROM @wp_pod_helpers WHERE name = '$params->name' LIMIT 1";
             pod_query($sql, 'Cannot get helpers', 'helper by this name already exists');
@@ -459,10 +461,10 @@ class PodAPI
         // Edit existing helper
         else {
             $maybename = '';
-            if (!empty($params->name))
+            if (isset($params->name) && !empty($params->name))
                 $maybename = "name = '$params->name',";
             $maybetype = '';
-            if (!empty($params->helper_type))
+            if (isset($params->helper_type) && !empty($params->helper_type))
                 $maybetype = "helper_type = '$params->helper_type',";
             pod_query("UPDATE @wp_pod_helpers SET {$maybename} {$maybetype} phpcode = '$params->phpcode' WHERE id = $params->id LIMIT 1");
         }
