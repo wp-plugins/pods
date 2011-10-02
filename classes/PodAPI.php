@@ -245,7 +245,7 @@ class PodAPI
                 pod_query("ALTER TABLE `@wp_pod_tbl_$params->dtname` ADD COLUMN `$params->name` $dbtype", 'Cannot create new column');
             }
             else {
-                pod_query("UPDATE @wp_pod_fields SET sister_field_id = '$field_id' WHERE id = $params->sister_field_id LIMIT 1", 'Cannot update sister field');
+                pod_query("UPDATE @wp_pod_fields SET sister_field_id = '{$field_id}' WHERE id = '{$params->sister_field_id}' LIMIT 1", 'Cannot update sister field');
             }
         }
         // Edit existing column
@@ -1222,7 +1222,7 @@ class PodAPI
         do_action('pods_pre_drop_pod_item', $params);
 
         // Pre-drop helpers
-        if (0 < strlen($params->pre_drop_helpers)) {
+        if (0 < count($params->pre_drop_helpers)) {
             foreach ($params->pre_drop_helpers as $helper) {
                 $function_or_file = $helper;
                 $check_function = $function_or_file;
@@ -1271,7 +1271,7 @@ class PodAPI
         do_action('pods_post_drop_pod_item', $params);
 
         // Post-drop helpers
-        if (0 < strlen($params->post_drop_helpers)) {
+        if (0 < count($params->post_drop_helpers)) {
             foreach ($params->post_drop_helpers as $helper) {
                 $function_or_file = $helper;
                 $check_function = $function_or_file;
