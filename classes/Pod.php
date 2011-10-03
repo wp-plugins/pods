@@ -778,9 +778,9 @@ class Pod
             // Add "`t`." prefix to $orderby if needed
             if (!empty($orderby) && false === strpos($orderby, ',') && false === strpos($orderby, '(') && false === strpos($orderby, '.')) {
                 if (false !== strpos($orderby, ' ASC'))
-                    $orderby = '`t`.`' . str_replace(array('`', ' DESC'), '', $orderby) . '` DESC';
+                    $orderby = '`t`.`' . trim(str_replace(array('`', ' DESC'), '', $orderby)) . '` DESC';
                 else
-                    $orderby = '`t`.`' . str_replace(array('`', ' DESC'), '', $orderby) . '` DESC';
+                    $orderby = '`t`.`' . trim(str_replace(array('`', ' DESC'), '', $orderby)) . '` DESC';
             }
 
             $haystack = str_replace(array('(', ')'), '', preg_replace('/\s/', ' ', "$select $where $groupby $having $orderby"));
