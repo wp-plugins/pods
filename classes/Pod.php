@@ -715,7 +715,7 @@ class Pod
                           'where' => $where,
                           'groupby' => $groupby,
                           'having' => $having,
-                          'orderby' => '`t`.`id` DESC',
+                          'orderby' => (is_array($orderby) ? '`t`.`id` DESC' : $orderby),
                           'limit' => $rows_per_page,
                           'search' => $this->search,
                           'search_var' => $this->search_var,
