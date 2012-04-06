@@ -742,8 +742,13 @@ function pods_ui_manage ($obj)
         <div class="alignleft actions">
 <?php
                 if(!in_array('add',$object->ui['disable_actions'])) {
+                    $label = 'Add New '.$object->ui['item'];
+                    if($object->ui['label_add']!==null)
+                    {
+                        $label = $object->ui['label_add'];
+                    }
 ?>
-            <input type="button" value="Add New <?php echo $object->ui['item']; ?>" class="button" onclick="document.location='<?php echo pods_ui_var_update(array('action'.$object->ui['num']=>'add')); ?>'" />
+            <input type="button" value="<?php echo $label; ?>" class="button" onclick="document.location='<?php echo pods_ui_var_update(array('action'.$object->ui['num']=>'add')); ?>'" />
 <?php
                 }
                 if($object->ui['reorder']!==null&&!in_array('reorder',$object->ui['disable_actions'])) {
