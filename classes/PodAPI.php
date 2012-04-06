@@ -176,7 +176,7 @@ class PodAPI
                                              'datatype' => '',
                                              'dtname' => '',
                                              'coltype' => 'txt',
-                                             'sister_field_id' => '',
+                                             'sister_field_id' => 0,
                                              'pickval' => '',
                                              'label' => '',
                                              'comment' => '',
@@ -184,13 +184,17 @@ class PodAPI
                                              'input_helper' => '',
                                              'pick_filter' => '',
                                              'pick_orderby' => '',
-                                             'required' => '',
-                                             'unique' => '',
-                                             'multiple' => ''),
+                                             'required' => 0,
+                                             'unique' => 0,
+                                             'multiple' => 0),
                                        (array) $params);
 
         // Force Types
         $params->id = absint($params->id);
+        $params->sister_field_id = absint($params->sister_field_id);
+        $params->required = absint($params->required);
+        $params->unique = absint($params->unique);
+        $params->multiple = absint($params->multiple);
 
         $dbtypes = array(
             'bool' => 'bool default 0',
@@ -228,14 +232,12 @@ class PodAPI
                 $weight = (int) $row['weight'] + 1;
             }
 
-            $params->sister_field_id = (int) $params->sister_field_id;
-
             if ('pick' != $params->coltype) {
                 $params->pickval = '';
                 $params->pick_filter = '';
                 $params->pick_orderby = '';
-                $params->sister_field_id = '';
-                $params->multiple = '';
+                $params->sister_field_id = 0;
+                $params->multiple = 0;
             }
 
             $field_id = pod_query("INSERT INTO @wp_pod_fields (datatype, name, label, comment, display_helper, input_helper, coltype, pickval, pick_filter, pick_orderby, sister_field_id, required, `unique`, `multiple`, weight) VALUES ('$params->datatype', '$params->name', '$params->label', '$params->comment', '$params->display_helper', '$params->input_helper', '$params->coltype', '$params->pickval', '$params->pick_filter', '$params->pick_orderby', '$params->sister_field_id', '$params->required', '$params->unique', '$params->multiple', '$weight')", 'Cannot add new field');
@@ -267,7 +269,6 @@ class PodAPI
 
                 $dbtype = $dbtypes[$params->coltype];
                 $pickval = ('pick' != $params->coltype || empty($params->pickval)) ? '' : "$params->pickval";
-                $params->sister_field_id = (int) $params->sister_field_id;
 
                 if ($params->coltype != $old_coltype) {
                     if ('pick' == $params->coltype || 'file' == $params->coltype) {
@@ -292,8 +293,8 @@ class PodAPI
                     $params->pickval = '';
                     $params->pick_filter = '';
                     $params->pick_orderby = '';
-                    $params->sister_field_id = '';
-                    $params->multiple = '';
+                    $params->sister_field_id = 0;
+                    $params->multiple = 0;
                 }
 
                 $sql = "
@@ -565,7 +566,7 @@ class PodAPI
 
         // Allow Helpers to bypass subsequent helpers in recursive save_pod_item calls
         $bypass_helpers = false;
-        if (isset($params->bypass_helpers) && false !== $params->bypass_helpers) {
+        if (isset($params->bypass_helpers) && true === (boolean) $params->bypass_helpers) {
         	$bypass_helpers = true;
         }
 
@@ -694,7 +695,13 @@ class PodAPI
 
             // Prepare all table (non-relational) data
             if (!in_array($type, array('pick', 'file'))) {
-                $table_data[] = "`$key` = '$val'";
+                if ('num' == $type)
+                    $val = floatval($val);
+                elseif ('bool' == $type)
+                    $val = min(absint($val), 1);
+                if ('num' != $type)
+                    $val = "'$val'";
+                $table_data[] = "`$key` = $val";
             }
             // Store relational column data to be looped through later
             else {
@@ -982,14 +989,14 @@ class PodAPI
         if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
             $params = pods_sanitize($params);
         $params = (object) $params;
-        
+
         $pod = $this->load_pod($params);
         if (false === $pod)
             return false;
-        
+
         $params->id = $pod['id'];
         $params->name = $pod['name'];
-        
+
         $fields = array();
         foreach ($pod['fields'] as $field) {
             $fields[] = $field['id'];
@@ -1029,11 +1036,11 @@ class PodAPI
         if (defined('PODS_STRICT_MODE') && PODS_STRICT_MODE)
             $params = pods_sanitize($params);
         $params = (object) $params;
-        
+
         $pod = $this->load_pod($params);
         if (false === $pod)
             return false;
-        
+
         $params->id = $pod['id'];
         $params->name = $pod['name'];
 
@@ -1642,7 +1649,7 @@ class PodAPI
             'desc' => 'mediumtext'
         );
         $dbtypes = apply_filters('pods_column_dbtypes', $dbtypes, $this);
-        
+
         $found = array();
 
         if (isset($data['pods'])) {

@@ -307,13 +307,15 @@ class Pod
 
         // Put all related items into an array
         if (!is_array($result)) {
-	    while ($row = mysql_fetch_assoc($result)) {
+            while ($row = mysql_fetch_assoc($result)) {
                 $data[] = $row;
-	    }
+            }
         }
-	else {
-	    $data = $result;
-	}
+        else
+            $data = $result;
+
+        //override with custom data
+        $data = apply_filters('pods_rel_lookup_data', $data, $tbl_row_ids, $table, $orderby, $this);
 
         return $data;
     }
@@ -330,7 +332,9 @@ class Pod
             echo "<e>Error: Pod name invalid, no data available</e>";
             return null;
         }
-        if (empty($this->data['pod_id']) && 0 < $this->data['id']) {
+        elseif (empty($this->data))
+            return 0;
+        elseif ((!isset($this->data['pod_id']) ||empty($this->data['pod_id'])) && isset($this->data['id']) && 0 < $this->data['id']) {
             $this->data['pod_id'] = 0;
             $tbl_row_id = (isset($this->data['id']) ? (int) $this->data['id'] : 0);
             $result = pod_query("SELECT `id` FROM `@wp_pod` WHERE `datatype` = '$this->datatype_id' AND `tbl_row_id` = '$tbl_row_id' LIMIT 1");
@@ -396,7 +400,7 @@ class Pod
         elseif (false === $content && false !== $function_or_file && isset($function_or_file['file']))
             locate_template($function_or_file['file'], true, true);
         elseif (false !== $content) {
-            if ((!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL))
+            if (!defined('PODS_DISABLE_EVAL') || !PODS_DISABLE_EVAL)
                 eval("?>$content");
             else
                 echo $content;
@@ -707,50 +711,62 @@ class Pod
         $params = null;
         $select = '`t`.*, `p`.`id` AS `pod_id`, `p`.`created`, `p`.`modified`';
         $this->traverse = array();
-        if(is_array($orderby)) {
-            $defaults = array('select' => $select,
-                              'join' => $join,
-                              'where' => $where,
-                              'groupby' => $groupby,
-                              'having' => $having,
-                              'orderby' => '`t`.`id` DESC',
-                              'limit' => $rows_per_page,
-                              'search' => $this->search,
-                              'search_var' => $this->search_var,
-                              'search_mode' => $this->search_mode,
-                              'traverse' => $this->traverse,
-                              'page' => $this->page,
-                              'pagination' => $this->pagination,
-                              'calc_found_rows' => $this->calc_found_rows,
-                              'count_found_rows' => $this->count_found_rows,
-                              'sql' => $sql);
+
+        $defaults = array('select' => $select,
+                          'join' => $join,
+                          'where' => $where,
+                          'groupby' => $groupby,
+                          'having' => $having,
+                          'orderby' => (is_array($orderby) ? '`t`.`id` DESC' : $orderby),
+                          'limit' => $rows_per_page,
+                          'offset' => null,
+                          'search' => $this->search,
+                          'search_var' => $this->search_var,
+                          'search_mode' => $this->search_mode,
+                          'traverse' => $this->traverse,
+                          'page' => $this->page,
+                          'page_var' => null,
+                          'pagination' => $this->pagination,
+                          'calc_found_rows' => $this->calc_found_rows,
+                          'count_found_rows' => $this->count_found_rows,
+                          'sql' => $sql);
+        $defaults = (array) apply_filters('pods_findrecords_defaults', $defaults, $orderby, $this);
+        $params = (object) $defaults;
+        if (is_array($orderby) && !empty($orderby))
             $params = (object) array_merge($defaults, $orderby);
-            if (0 < strlen($params->select))
-                $select = $params->select;
-            $join = $params->join;
-            $this->search = (boolean) $params->search;
-            $this->search_var = $params->search_var;
-            $this->search_mode = (in_array($params->search_mode, array('int', 'text')) ? $params->search_mode : 'int');
-            $this->traverse = (array) $params->traverse;
-            $where = $params->where;
-            $groupby = $params->groupby;
-            $having = $params->having;
-            $orderby = $params->orderby;
-            $rows_per_page = (int) $params->limit;
-            $this->page = (int) $params->page;
-            $this->pagination = (bool) $params->pagination;
-            $this->calc_found_rows = (boolean) $params->calc_found_rows;
-            $this->count_found_rows = (boolean) $params->count_found_rows;
-            $sql = $params->sql;
-            if (true === $this->count_found_rows && empty($sql))
-                $this->calc_found_rows = false;
-        }
+
+        if (0 < strlen($params->select))
+            $select = $params->select;
+        $join = $params->join;
+        $this->search = (boolean) $params->search;
+        $this->search_var = $params->search_var;
+        $this->search_mode = (in_array($params->search_mode, array('int', 'text')) ? $params->search_mode : 'int');
+        $this->traverse = (array) $params->traverse;
+        $where = $params->where;
+        $groupby = $params->groupby;
+        $having = $params->having;
+        $orderby = $params->orderby;
+        $rows_per_page = (int) $params->limit;
+        $this->page = (int) $params->page;
+        if (null !== $params->page_var)
+            $this->page_var = (int) $params->page_var;
+        if ($this->page < 1 || null !== $params->page_var)
+            $this->page = max(pods_var($this->page_var, 'get'), 1);
+        $this->pagination = (bool) $params->pagination;
+        $this->calc_found_rows = (boolean) $params->calc_found_rows;
+        $this->count_found_rows = (boolean) $params->count_found_rows;
+        $sql = $params->sql;
+        if (true === $this->count_found_rows && empty($sql))
+            $this->calc_found_rows = false;
         $page = (int) $this->page;
         if ($rows_per_page < 0 || false === $this->pagination)
             $page = $this->page = 1;
         $datatype = $this->datatype;
         $datatype_id = (int) $this->datatype_id;
         $this->rpp = (int) $rows_per_page;
+        $this->offset = ($this->rpp * ($page - 1));
+        if (null !== $params->offset)
+            $this->offset += (int) $params->offset;
 
         $sql_builder = false;
         if (empty($sql)) {
@@ -759,7 +775,7 @@ class Pod
 
             // ctype_digit expects a string, or it returns FALSE
             if (ctype_digit("$rows_per_page") && 0 <= $rows_per_page) {
-                $limit = ($rows_per_page * ($page - 1)) . ',' . $rows_per_page;
+                $limit = $this->offset . ',' . $rows_per_page;
             }
             elseif (false !== strpos($rows_per_page, ',')) {
                 // Custom offset
@@ -778,12 +794,14 @@ class Pod
             // Add "`t`." prefix to $orderby if needed
             if (!empty($orderby) && false === strpos($orderby, ',') && false === strpos($orderby, '(') && false === strpos($orderby, '.')) {
                 if (false !== strpos($orderby, ' ASC'))
-                    $orderby = '`t`.`' . str_replace(array('`', ' DESC'), '', $orderby) . '` DESC';
+                    $orderby = '`t`.`' . trim(str_replace(array('`', ' ASC'), '', $orderby)) . '` ASC';
                 else
-                    $orderby = '`t`.`' . str_replace(array('`', ' DESC'), '', $orderby) . '` DESC';
+                    $orderby = '`t`.`' . trim(str_replace(array('`', ' DESC'), '', $orderby)) . '` DESC';
             }
 
-            $haystack = str_replace(array('(', ')'), '', preg_replace('/\s/', ' ', "$select $where $groupby $having $orderby"));
+            $haystack = preg_replace('/\s/', ' ', "$select $where $groupby $having $orderby");
+            $haystack = preg_replace('/\w\(/', ' ', $haystack);
+            $haystack = str_replace(array('(', ')', '  '), ' ', $haystack);
 
             preg_match_all('/`?[\w]+`?(?:\\.`?[\w]+`?)+(?=[^"\']*(?:"[^"]*"[^"]*|\'[^\']*\'[^\']*)*$)/', $haystack, $found, PREG_PATTERN_ORDER);
 
@@ -814,7 +832,7 @@ class Pod
                 if (!in_array($value, $found))
                     $found[$key] = $value;
             }
-            
+
             if (!empty($this->traverse)) {
                 foreach ((array) $this->traverse as $key => $traverse) {
                     $traverse = str_replace('`', '', $traverse);
@@ -1047,7 +1065,7 @@ class Pod
         $uri_hash = wp_hash($_SERVER['REQUEST_URI']);
 
         do_action('pods_showform_pre', $pod_id, $public_columns, $label, $this);
-        
+
         foreach ($fields as $key => $field) {
             // Replace field attributes with public form attributes
             if (!empty($attributes) && is_array($attributes[$key])) {
@@ -1258,7 +1276,7 @@ class Pod
      */
     function parse_template_string($in) {
         ob_start();
-        if ((!defined('PODS_DISABLE_EVAL') || PODS_DISABLE_EVAL))
+        if (!defined('PODS_DISABLE_EVAL') || !PODS_DISABLE_EVAL)
             eval("?>$in");
         else
             echo $in;
@@ -1272,7 +1290,7 @@ class Pod
      */
     function parse_magic_tags($in) {
         $name = $in[2];
-        $before = $after = '';
+        $before = $after = $helper = '';
         if (false !== strpos($name, ',')) {
             @list($name, $helper, $before, $after) = explode(',', $name);
             $name = trim($name);
@@ -1293,7 +1311,7 @@ class Pod
             $value = $this->pod_helper($helper, $value, $name);
 
         // Clean out PHP in case it exists
-        $value = str_replace(array('<?php', '<?', '?>'), array('&lt;?php', '&lt;?', '?&gt;'), $value);
+        $value = str_replace(array('<' . '?php', '<' . '?', '?' .'>'), array('&lt;?php', '&lt;?', '?&gt;'), $value);
 
         $value = apply_filters('pods_parse_magic_tags', $value, $name, $helper, $before, $after);
         if (null != $value && false !== $value)
