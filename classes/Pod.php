@@ -642,6 +642,7 @@ class Pod
         if ($this->is_val($datatype)) {
             $this->result = null;
             if (is_numeric($id)) {
+                $id = (int) $id;
                 $sql = "
                 SELECT
                     DISTINCT `t`.*, `p`.`id` AS `pod_id`, `p`.`created`, `p`.`modified`

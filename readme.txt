@@ -3,8 +3,10 @@ Contributors: sc0ttkclark, logikal16, jchristopher
 Donate link: http://podsfoundation.org/donate/
 Tags: pods, cms, cck, pods ui, ui, content types, custom post types, relationships, database, framework, drupal, mysql, custom content, php
 Requires at least: 3.1
-Tested up to: 3.3.1
-Stable tag: 1.12.4
+Tested up to: 3.3.2
+Stable tag: 1.14
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Pods is a CMS framework for creating, managing, and deploying customized content types.
 
@@ -39,31 +41,44 @@ Pods also includes an easy to use PHP API to allow you to import and export your
 [vimeo http://vimeo.com/15086927]
 
 = Stay tuned for Pods 2.0 =
-Pods 2.0 is around the corner, so keep up-to-date by following our @podsframework twitter account or checking out our Pods Development blog at http://dev.podscms.org/2011/06/16/pods-2-0-and-how-you-can-help/
+Pods 2.0 is around the corner, so keep up-to-date by following us on Twitter @podsframework or checking out our Pods Development blog at http://dev.podscms.org/
 
 Features coming in Pods 2.0 include:
 
 * Completely revamped UI
 * Pods UI refactoring / revamp
-* Create and Manage Custom Post Types
-* Create and Manage Custom Taxonomy
-* Easy migration between Custom Post Types and Custom Content Types (Standalone Pods)
+* Create and Extend Post Types (post, page, and custom post types)
+* Create and Extend Taxonomies (category, tag, and custom taxonomies)
+* Extend Users, Comments, and Media (add new fields to the front / admin forms!)
+* Meta storage integration for Post Types, Users, Comments, and Media
+* WP core integration with standard theming functions you already use
 * Many more field types and advanced options (less code for you to do!)
 * Many MySQL optimizations and performance tweaks
 * Full i18n support
-* and more features which can be found at: http://dev.podscms.org/pods-2-0/
-* Pods 2.0 and How You Can Help: http://dev.podscms.org/2011/06/16/pods-2-0-and-how-you-can-help/
+* Gravity Forms integration for mapping form submissions to a Pod
+* New Templating / Caching / Transients feature for independent partial page caching
+* and more features which can be found at: http://dev.podscms.org/
 
 == Installation ==
 
 1. Unpack the entire contents of this plugin zip file into your `wp-content/plugins/` folder locally
 1. Upload to your site
-1. Navigate to `wp-admin/plugins.php` on your site (your WP plugin page)
+1. Navigate to `wp-admin/plugins.php` on your site (your WP Admin plugin page)
 1. Activate this plugin
 
 OR you can just install it with WordPress by going to Plugins >> Add New >> and type this plugin's name
 
 == Changelog ==
+
+= 1.14 - May 5, 2012 =
+* Important Change / Addition: For installations using WordPress 3.3+, we have switched the default uploader to Plupload from SWFUpload due to incompatibilities introduced in WP 3.3.2 that effect all plugins and themes using the styled button. Be sure to update your file upload helpers using our examples at http://podscms.org/packages/file-uploader-input-helpers/
+* Added: edit_where_any option in Pods UI now lets you set (true/false) whether for edit_where to be an ANY or ALL match (default false = ALL)
+* Fixed: Date Input field was throwing a JS error if you used YYYY-mm-dd format without the time included
+* Fixed: parse_url fixes for when path isn't set (localhost or custom ports usually causes this)
+* Fixed: When there was extra output above or below JSON strings like errors from other plugins, whitespace, or anything else - we now explicitly match the JSON {...} string before using it in JS to avoid confusing errors for the user
+* Fixed: .pods_form style tweaks to help cover themes which display the form incorrectly
+* Fixed: Forcing (int) on getRecordById when is_numeric( $id )
+* Fixed: Resolved incompatibility issues with certain MySQL configurations which were throwing errors when saving a Pod
 
 = 1.12.4 - April 5, 2012 =
 * Added: 'offset' parameter to Pod::findRecords, allows you to offset what results to start with, which is added to the offset calculated based on current page number and limit
