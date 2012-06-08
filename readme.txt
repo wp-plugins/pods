@@ -70,6 +70,10 @@ OR you can just install it with WordPress by going to Plugins >> Add New >> and 
 
 == Changelog ==
 
+= 1.14.2 - June 8th, 2012 =
+* Security Update Reminder (from 1.12): AJAX API calls all utilize _wpnonce hashes, update your customized publicForm / input helper code AJAX (api.php and misc.php expect `wp_create_nonce('pods-' . $action)` usage)
+* Changed: More strictness to the above security update, also setting tighter defaults for security access w/ uploader
+
 = 1.14.1 - May 31st, 2012 =
 * Changed: Uploaded files now uses data-post-id attribute in file row div to avoid issues with IDs, backwards compatibility maintained for old input helpers using IDs
 * Fixed: Uploaded files not showing in form in the order of upload on subsequent edits
