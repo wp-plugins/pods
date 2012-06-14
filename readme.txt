@@ -3,7 +3,7 @@ Contributors: sc0ttkclark, logikal16, jchristopher
 Donate link: http://podsfoundation.org/donate/
 Tags: pods, cms, cck, pods ui, ui, content types, custom post types, relationships, database, framework, drupal, mysql, custom content, php
 Requires at least: 3.1
-Tested up to: 3.3.2
+Tested up to: 3.4
 Stable tag: 1.14.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
