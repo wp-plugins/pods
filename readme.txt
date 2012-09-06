@@ -81,6 +81,7 @@ OR you can just install it with WordPress by going to Plugins >> Add New >> and 
 * Added: New pods_page_precode_X action, where X is the Pod Page URI
 * Fixed: get_field from returning values if an id is not set (no data found)
 * Fixed: Moved wp_editor support into an if/else statement to avoid potential overlaps
+* Fixed: Pods UI pagination and search parameter naming for 'num' usage
 
 = 1.14.2 - June 8th, 2012 =
 * Changed: More strictness to the above security update, also setting tighter defaults for security access w/ uploader
