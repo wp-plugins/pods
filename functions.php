@@ -498,17 +498,11 @@ function pods_access ( $privs, $method = 'OR' ) {
 
     if ( 'AND' == strtoupper( $method ) ) {
         foreach ( $privs as $priv ) {
-            if ( isset( $approved_privs[ $priv ] ) )
+            if ( !isset( $approved_privs[ $priv ] ) )
                 return false;
         }
 
         return true;
-    }
-    else {
-        foreach ( $privs as $priv ) {
-            if ( isset( $approved_privs[ $priv ] ) )
-                return false;
-        }
     }
 
     return false;
