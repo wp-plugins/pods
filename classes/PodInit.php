@@ -173,7 +173,9 @@ class PodInit
                 eval("?>$content");
         }
 
-        do_action('pods_page_precode', $pod_page_exists, $pods);
+        do_action( 'pods_page_precode', $pod_page_exists, $pods );
+        do_action( 'pods_page_precode_' . $pod_page_exists[ 'uri' ], $pod_page_exists, $pods );
+
         if (!is_object($pods) && (404 == $pods || is_wp_error($pods))) {
             remove_action('template_redirect', array($this, 'template_redirect'));
             remove_action('wp_head', array($this, 'wp_head'));
