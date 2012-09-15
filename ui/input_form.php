@@ -131,6 +131,13 @@ function fileBrowser() {
         }
     });
 }
+function pods_ui_swf_preview ( e ) {
+    var src = jQuery( e ).data( 'src' );
+    jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", "url('" + src + "')" ).show();
+}
+function pods_ui_swf_hide () {
+    jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", "url('')" ).hide();
+}
 <?php
     }
 ?>
@@ -151,6 +158,7 @@ if (1 == $form_count && !(defined('PODS_DISABLE_FILE_BROWSER') && true === PODS_
     <input type="text" id="file_search" value="" />
     <input type="button" class="button" value="Narrow results" onclick="fileBrowser()" />
     <div class="filebox"></div>
+    <div class='fb_preview'></div>
 </div>
 <?php
 }
