@@ -74,18 +74,16 @@ OR you can just install it with WordPress by going to Plugins >> Add New >> and 
 
 == Changelog ==
 
-= 1.14.4 - September 15th, 2012 =
+= 1.14.4 - September 16th, 2012 =
 * Security Update Reminder: As of Pods 1.12+, AJAX API calls all utilize _wpnonce hashes, update your customized publicForm / input helper code AJAX (api.php and misc.php expect `wp_create_nonce('pods-' . $action)` usage)
-* Note: Oh hey, Pods 2.0 is in beta now! Go test it out and let us know if you have any trouble by posting issues on our GitHub: http://github.com/pods-framework/pods/issues
-* Added: Reordering a Pod (using pods_ui_manage) now has a new capability check for pods_reorder_pod_podname (Custom WP capability you can add to the user's role if they don't have pod_podname access already)
-* Added: New pods_page_precode_X action, where X is the Pod Page URI
-* Fixed: get_field from returning values if an id is not set (no data found)
-* Fixed: Moved wp_editor support into an if/else statement to avoid potential overlaps
-* Fixed: Pods UI pagination and search parameter naming for 'num' usage
+* Note: Oh hey, Pods 2.0 is coming out September 21st! Please help us test the beta out: http://dev.podsframework.org/tag/pods2/
+* Changed: get_current_url was an older function added by Pods a while back, pods_get_current_url is the new function name which is future-proof (get_current_url will point at the new one)
+* Added: A new check will deactivate the plugin if you happen to have another version of the plugin activated for testing purposes
+* Added: Just a quick enhancement to enjoy, File Browser now has a mouse-over image enlarge function (props @WallabyKid), see: http://podsframework.org/forums/topic/add-thumbnail-preview-to-jqmwindow-file-browser-for-image-files/
+* Fixed: Some plugins/themes use the wp_title filter incorrectly and do not pass the $sep and $seplocation variables, we now set defaults in those cases
+* Fixed: Some sites experienced PHP notices from the way we've been using parse_url, we now have a fallback for that handling which clears those up
 
 = 1.14.3 - September 6th, 2012 =
-* Security Update Reminder: As of Pods 1.12+, AJAX API calls all utilize _wpnonce hashes, update your customized publicForm / input helper code AJAX (api.php and misc.php expect `wp_create_nonce('pods-' . $action)` usage)
-* Note: Oh hey, Pods 2.0 is in beta now! Go test it out and let us know if you have any trouble by posting issues on our GitHub: http://github.com/pods-framework/pods/issues
 * Added: Reordering a Pod (using pods_ui_manage) now has a new capability check for pods_reorder_pod_podname (Custom WP capability you can add to the user's role if they don't have pod_podname access already)
 * Added: New pods_page_precode_X action, where X is the Pod Page URI
 * Fixed: get_field from returning values if an id is not set (no data found)
