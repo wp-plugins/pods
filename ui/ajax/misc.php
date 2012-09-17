@@ -66,18 +66,15 @@ if ('browse_files' == $params->action && false === $browse_disabled) {
     $thmb_size = "-{$thmb_width}x{$thmb_height}";
     if ( 0 < mysql_num_rows( $result ) ) {
         while ( $row = mysql_fetch_assoc( $result ) ) {
-            $hover = "";
             $guid = substr( $row[ 'guid' ], strrpos( $row[ 'guid' ], '/' ) + 1 );
             $thumb = wp_get_attachment_thumb_url( $row[ 'id' ] );
             $ext = "." . substr( strrchr( $thumb, "." ), 1 );
-            if ( in_array( $ext, $file_types ) ) {
+            if ( in_array( $ext, $file_types ) )
                 $url = $thumb;
-                $hover = 'onmouseover="pods_ui_swf_hide(this)" onmouseout="pods_ui_swf_hide();"';
-            }
             else
                 $url = "file";
     ?>
-        <div class="file_match" rel="<?php echo $row[ 'id' ]; ?>" style="width: 280px; cursor:pointer;" data-source="<?php echo $url ?>" <?php echo $hover; ?> ><?php echo $guid; ?></div>
+        <div class="file_match" rel="<?php echo $row[ 'id' ]; ?>" style="width: 280px; cursor:pointer;" data-source="<?php echo $url ?>"><?php echo $guid; ?></div>
     <?php
         }
     }

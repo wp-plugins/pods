@@ -47,7 +47,12 @@ jQuery(function() {
 <?php
     if (!(defined('PODS_DISABLE_FILE_BROWSER') && true === PODS_DISABLE_FILE_BROWSER) && !(defined('PODS_FILES_REQUIRE_LOGIN') && is_bool(PODS_FILES_REQUIRE_LOGIN) && true === PODS_FILES_REQUIRE_LOGIN && !is_user_logged_in()) && !(defined('PODS_FILES_REQUIRE_LOGIN') && !is_bool(PODS_FILES_REQUIRE_LOGIN) && (!is_user_logged_in() || !current_user_can(PODS_FILES_REQUIRE_LOGIN)))) {
 ?>
-    jQuery("#dialog").jqm();
+    jQuery( '#dialog' ).on( 'mouseenter', '.file_match', function () {
+        var src = jQuery( this ).data( 'source' );
+        jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", "url('" + src + "')" ).show();
+    } ).on( 'mouseout', '.file_match', function () {
+        jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", '' ).hide();
+    } ).jqm();
 <?php
     }
 ?>
@@ -130,13 +135,6 @@ function fileBrowser() {
             jQuery(".filebox").html(msg);
         }
     });
-}
-function pods_ui_swf_preview ( e ) {
-    var src = jQuery( e ).data( 'src' );
-    jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", "url('" + src + "')" ).show();
-}
-function pods_ui_swf_hide () {
-    jQuery( ".pods_form .fb_preview, .pods_admin .fb_preview" ).css( "background-image", "url('')" ).hide();
 }
 <?php
     }
