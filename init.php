@@ -6,6 +6,8 @@ Description: Pods is a framework for creating, managing, and deploying customize
 Version: 2.0.0
 Author: Pods Framework Team
 Author URI: http://podsframework.org/about/
+Text Domain: pods
+Domain Path: /languages/
 
 Copyright 2009-2012  The Pods Framework Team  (email : contact@podsframework.org)
 
@@ -69,3 +71,11 @@ else {
 
     add_action( 'init', 'pods_deactivate_1_x' );
 }
+
+/**
+ * Load the plugin textdomain.
+ */
+function pods_textdomain () {
+	load_plugin_textdomain( 'pods', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
+}
+add_action( 'plugins_loaded', 'pods_textdomain' );
