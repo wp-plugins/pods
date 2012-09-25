@@ -38,6 +38,8 @@ class PodsInit {
     function __construct () {
         self::$version = get_option( 'pods_framework_version' );
 
+        add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
+
         add_action( 'init', array( $this, 'activate_install' ), 9 );
 
         if ( !empty( self::$version ) ) {
@@ -63,7 +65,14 @@ class PodsInit {
     }
 
     /**
-     *
+     * Load the plugin textdomain.
+     */
+    function load_textdomain () {
+        load_plugin_textdomain( 'pods', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
+    }
+
+    /**
+     * Set up the Pods core
      */
     function init () {
         // Session start
@@ -776,15 +785,16 @@ class PodsInit {
             ) );
         }
 
-        // Add edit link if we're on a pods page (this requires testing)
+        // Add edit link if we're on a pods page
         // @todo Fill in correct href and test this once PodsAPI is capable of adding new pod items to the database
-        if ( is_object( $pods ) && !is_wp_error( $pods ) && isset( $pods->id ) ) {
+        /*
+        if ( is_object( $pods ) && !is_wp_error( $pods ) && !empty( $pods->id ) ) {
             $wp_admin_bar->add_node( array(
                 'title' => 'Edit Pod Item',
                 'id' => 'edit-pod',
                 'href' => '#'
             ) );
-        }
+        }*/
 
     }
 }

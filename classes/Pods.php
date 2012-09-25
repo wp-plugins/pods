@@ -15,12 +15,12 @@ class Pods {
     public $data;
 
     /**
-     * @var
+     * @var Array of pod item arrays
      */
-    private $results;
+    public $rows;
 
     /**
-     * @var
+     * @var Current pod item array
      */
     public $row;
 
@@ -147,7 +147,7 @@ class Pods {
         PodsData::$display_errors =& $this->display_errors;
 
         // Set up page variable
-        if ( !defined( 'PODS_STRICT_MODE' ) || PODS_STRICT_MODE ) {
+        if ( defined( 'PODS_STRICT_MODE' ) && PODS_STRICT_MODE ) {
             $this->page = 1;
             $this->pagination = false;
             $this->search = false;
@@ -202,7 +202,7 @@ class Pods {
         $this->detail_page =& $this->data->detail_page;
         $this->id =& $this->data->id;
         $this->row =& $this->data->row;
-        $this->results =& $this->data->data;
+        $this->rows =& $this->data->data;
 
         if ( is_array( $id ) || is_object( $id ) )
             $this->find( $id );
@@ -232,10 +232,10 @@ class Pods {
     public function data () {
         $this->do_hook( 'data' );
 
-        if ( empty( $this->results ) )
+        if ( empty( $this->rows ) )
             return false;
 
-        return (array) $this->results;
+        return (array) $this->rows;
     }
 
     /**
@@ -670,27 +670,23 @@ class Pods {
      * @return int
      * @since 2.0.0
      */
-    public function next_pod_item_id ( $id = null ) {
-        $pod = new Pods( $this->pod );
+    public function next_id( $id = null ) {
         if ( null === $id )
             $id = $this->field( 'id' );
+
         $params = array(
-            'select' => 'id',
-            'where' => "id > $id",
-            'orderby' => "id ASC",
+            'select' => $this->data->field_id,
+            'where' => $id . ' < ' . $this->data->field_id,
+            'orderby' => 't.' . $this->data->field_id . ' ASC',
             'limit' => 1
         );
-        $pod->find( $params );
-        if ( !$pod->total_found() > 0 ) {
-            $params = array(
-                'select' => 'id',
-                'orderby' => "id ASC",
-                'limit' => 1
-            );
-            $pod->find( $params );
-        }
 
-        return $pod->field( 'id' );
+        $pod = pods( $this->pod, $params );
+
+        if ( $pod->fetch() )
+            return $pod->id();
+
+        return 0;
     }
 
     /**
@@ -701,28 +697,23 @@ class Pods {
      * @return int
      * @since 2.0.0
      */
-    public function prev_pod_item_id ( $id = null ) {
-        $pod = new Pods( $this->pod );
+    public function prev_id ( $id = null ) {
         if ( null === $id )
             $id = $this->field( 'id' );
+
         $params = array(
-            'select' => 'id',
-            'where' => "id < $id",
-            'orderby' => "id DESC",
+            'select' => $this->data->field_id,
+            'where' => $this->data->field_id . ' < ' . $id,
+            'orderby' => 't.' . $this->data->field_id . ' DESC',
             'limit' => 1
         );
-        $pod->find( $params );
-        if ( !$pod->total_found() > 0 ) {
-            $params = array(
-                'select' => 'id',
-                'orderby' => "id DESC",
-                'limit' => 1
-            );
-            $pod->find( $params );
-        }
 
-        return $pod->field( 'id' );
+        $pod = pods( $this->pod, $params );
 
+        if ( $pod->fetch() )
+            return $pod->id();
+
+        return 0;
     }
 
     /**
@@ -747,8 +738,6 @@ class Pods {
      * @since 2.0.0
      */
     public function find ( $params = null, $limit = 15, $where = null, $sql = null ) {
-        global $wpdb;
-
         $select = '`t`.*';
         $pod_table_prefix = 't';
 
@@ -1287,6 +1276,23 @@ class Pods {
 
         if ( empty( $fields ) )
             $fields = $this->fields;
+        else {
+            foreach ( $fields as $k => $field ) {
+                $name = $k;
+
+                if ( !is_array( $field ) ) {
+                    $name = $field;
+                    $field = array();
+                }
+                elseif ( isset( $field[ 'name' ] ) )
+                    $name = $field[ 'name' ];
+
+                if ( !isset( $this->fields[ $name ] ) || pods_var_raw( 'hidden', $field, false, null, true ) )
+                    unset( $fields[ $k ] );
+                else
+                    $fields[ $k ] = array_merge( $this->fields[ $name ], $field );
+            }
+        }
 
         $label = $params[ 'label' ];
 
