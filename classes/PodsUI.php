@@ -378,12 +378,12 @@ class PodsUI {
         elseif ( is_object( $object ) )
             $this->pod = $object;
 
-        if ( false !== $deprecated || ( is_object( $this->pod ) && 'Pod' == get_class( $object ) ) )
+        if ( false !== $deprecated || ( is_object( $this->pod ) && 'Pod' == get_class( $this->pod ) ) )
             $options = $this->setup_deprecated( $options );
 
-        if ( is_object( $this->pod ) && 'Pod' == get_class( $object ) && is_object( $this->pod->_data ) )
+        if ( is_object( $this->pod ) && 'Pod' == get_class( $this->pod ) && is_object( $this->pod->_data ) )
             $this->pods_data =& $this->pod->_data;
-        elseif ( is_object( $this->pod ) && 'Pods' == get_class( $object ) && is_object( $this->pod->data ) )
+        elseif ( is_object( $this->pod ) && 'Pods' == get_class( $this->pod ) && is_object( $this->pod->data ) )
             $this->pods_data =& $this->pod->data;
         elseif ( is_object( $this->pod ) )
             $this->pods_data =& pods_data( $this->pod->pod );
@@ -1002,24 +1002,25 @@ class PodsUI {
                 $this->fields[ 'manage' ] = $fields;
 
             if ( !in_array( 'add', $this->actions_disabled ) || !in_array( 'edit', $this->actions_disabled ) || !in_array( 'duplicate', $this->actions_disabled ) ) {
-                if ( 'form' != $which && !empty( $this->fields[ 'form' ] ) )
+                if ( 'form' != $which && isset( $this->fields[ 'form' ] ) && is_array( $this->fields[ 'form' ] ) )
                     $this->fields[ 'form' ] = $this->setup_fields( $this->fields[ 'form' ], 'form' );
                 else
                     $this->fields[ 'form' ] = $fields;
+
                 if ( !in_array( 'add', $this->actions_disabled ) ) {
-                    if ( 'add' != $which && !empty( $this->fields[ 'add' ] ) )
+                    if ( 'add' != $which && isset( $this->fields[ 'add' ] ) && is_array( $this->fields[ 'add' ] ) )
                         $this->fields[ 'add' ] = $this->setup_fields( $this->fields[ 'add' ], 'add' );
                     else
                         $this->fields[ 'add' ] = $fields;
                 }
                 if ( !in_array( 'edit', $this->actions_disabled ) ) {
-                    if ( 'edit' != $which && !empty( $this->fields[ 'edit' ] ) )
+                    if ( 'edit' != $which && isset( $this->fields[ 'edit' ] ) &&is_array( $this->fields[ 'edit' ] ) )
                         $this->fields[ 'edit' ] = $this->setup_fields( $this->fields[ 'edit' ], 'edit' );
                     else
                         $this->fields[ 'edit' ] = $fields;
                 }
                 if ( !in_array( 'duplicate', $this->actions_disabled ) ) {
-                    if ( 'duplicate' != $which && !empty( $this->fields[ 'duplicate' ] ) )
+                    if ( 'duplicate' != $which && isset( $this->fields[ 'duplicate' ] ) &&is_array( $this->fields[ 'duplicate' ] ) )
                         $this->fields[ 'duplicate' ] = $this->setup_fields( $this->fields[ 'duplicate' ], 'duplicate' );
                     else
                         $this->fields[ 'duplicate' ] = $fields;
@@ -1027,7 +1028,7 @@ class PodsUI {
             }
 
             if ( false !== $this->searchable ) {
-                if ( 'search' != $which && !empty( $this->fields[ 'search' ] ) )
+                if ( 'search' != $which && isset( $this->fields[ 'search' ] ) &&!empty( $this->fields[ 'search' ] ) )
                     $this->fields[ 'search' ] = $this->setup_fields( $this->fields[ 'search' ], 'search' );
                 else
                     $this->fields[ 'search' ] = $fields;
@@ -1036,14 +1037,14 @@ class PodsUI {
                 $this->fields[ 'search' ] = false;
 
             if ( !in_array( 'export', $this->actions_disabled ) ) {
-                if ( 'export' != $which && !empty( $this->fields[ 'export' ] ) )
+                if ( 'export' != $which && isset( $this->fields[ 'export' ] ) &&!empty( $this->fields[ 'export' ] ) )
                     $this->fields[ 'export' ] = $this->setup_fields( $this->fields[ 'export' ], 'export' );
                 else
                     $this->fields[ 'export' ] = $fields;
             }
 
             if ( !in_array( 'reorder', $this->actions_disabled ) && false !== $this->reorder[ 'on' ] ) {
-                if ( 'reorder' != $which && !empty( $this->fields[ 'reorder' ] ) )
+                if ( 'reorder' != $which && isset( $this->fields[ 'reorder' ] ) &&!empty( $this->fields[ 'reorder' ] ) )
                     $this->fields[ 'reorder' ] = $this->setup_fields( $this->fields[ 'reorder' ], 'reorder' );
                 else
                     $this->fields[ 'reorder' ] = $fields;
@@ -1241,13 +1242,17 @@ class PodsUI {
         if ( isset( $this->actions_custom[ 'form' ] ) && is_callable( $this->actions_custom[ 'form' ] ) )
             return call_user_func_array( $this->actions_custom[ 'form' ], array( &$this ) );
 
-        $submit = $this->label[ 'add' ];
+        $label = $this->label[ 'add' ];
         $id = null;
         $vars = array(
             'action' . $this->num => $this->action_after[ 'add' ],
             'do' . $this->num => 'create',
             'id' . $this->num => 'X_ID_X'
         );
+
+        $alt_vars = $vars;
+        $alt_vars[ 'action' ] = 'manage';
+        unset( $alt_vars[ 'id' ] );
 
         if ( false === $create ) {
             if ( empty( $this->row ) )
@@ -1256,7 +1261,7 @@ class PodsUI {
             if ( empty( $this->row ) )
                 return $this->error( sprintf( __( '<strong>Error:</strong> %s not found.', 'pods' ), $this->item ) );
 
-            $submit = $this->label[ 'edit' ];
+            $label = $this->label[ 'edit' ];
             $id = $this->row[ $this->sql[ 'field_id' ] ];
             $vars = array(
                 'action' . $this->num => $this->action_after[ 'edit' ],
@@ -1264,23 +1269,33 @@ class PodsUI {
                 'id' . $this->num => $id
             );
 
+            $alt_vars = $vars;
+            $alt_vars[ 'action' ] = 'manage';
+            unset( $alt_vars[ 'id' ] );
+
             if ( 1 == $duplicate ) {
-                $submit = $this->label[ 'duplicate' ];
+                $label = $this->label[ 'duplicate' ];
                 $id = null;
                 $vars = array(
                     'action' . $this->num => $this->action_after[ 'duplicate' ],
                     'do' . $this->num => 'create',
                     'id' . $this->num => 'X_ID_X'
                 );
+
+                $alt_vars = $vars;
+                $alt_vars[ 'action' ] = 'manage';
+                unset( $alt_vars[ 'id' ] );
             }
         }
 
         $fields =& $this->fields[ $this->action ];
         $pod =& $this->pod;
         $thank_you = pods_var_update( $vars, array( 'page' ), $this->exclusion() );
+        $thank_you_alt = pods_var_update( $alt_vars, array( 'page' ), $this->exclusion() );
         $obj =& $this;
         $singular_label = $this->item;
-        $label = $this->items;
+        $plural_label = $this->items;
+        $label = sprintf( __( 'Save %s', 'pods' ), $this->item );
 
         pods_view( PODS_DIR . 'ui/admin/form.php', compact( array_keys( get_defined_vars() ) ) );
     }
@@ -2512,6 +2527,7 @@ class PodsUI {
         }
 
         $field_name = $tag[ 0 ];
+
         $value = $this->get_field( $field_name );
 
         if ( isset( $tag[ 1 ] ) && !empty( $tag[ 1 ] ) && is_callable( $tag[ 1 ] ) )

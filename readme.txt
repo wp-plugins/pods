@@ -4,7 +4,7 @@ Donate link: http://podsfoundation.org/donate/
 Tags: pods, cms, cck, ui, content types, custom post types, relationships, database, framework, drupal
 Requires at least: 3.4
 Tested up to: 3.5
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -87,6 +87,11 @@ Coming soon!
 OR you can just install it with WordPress by going to Plugins >> Add New >> and type this plugin's name
 
 == Changelog ==
+
+= 2.0.2 - September 27th, 2012 =
+* Even more bugs have now been fixed including additional backwards compatibility fixes
+* Caching improvements and fixes, things should be even more responsive, try enabling object caching to see super speed!
+* Found a bug? Have a great feature idea? Get on GitHub and tell us about it and we'll get right on it: https://github.com/pods-framework/pods/issues/new
 
 = 2.0.1 - September 25th, 2012 =
 * With the help of our awesome users, we've been able to quickly fix 14 bugs

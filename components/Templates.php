@@ -115,8 +115,8 @@ class Pods_Templates extends PodsComponent {
                 return;
         }
 
-        delete_transient( 'pods_object_template' );
-        delete_transient( 'pods_object_template_' . $post->post_title );
+        pods_transient_clear( 'pods_object_template' );
+        pods_transient_clear( 'pods_object_template_' . $post->post_title );
     }
 
     /**
@@ -260,11 +260,11 @@ class Pods_Templates extends PodsComponent {
             // Only detail templates need $this->id
             if ( empty( $obj->id ) ) {
                 while ( $obj->fetch() ) {
-                    echo self::do_template( $code );
+                    echo self::do_template( $code, $obj );
                 }
             }
             else
-                echo self::do_template( $code );
+                echo self::do_template( $code, $obj );
         }
 
         $out = ob_get_clean();
@@ -284,13 +284,8 @@ class Pods_Templates extends PodsComponent {
      * @since 1.8.5
      */
     public static function do_template ( $code, $obj = null ) {
-        $php = true;
-
-        if ( !empty( $obj ) ) {
+        if ( !empty( $obj ) )
             self::$obj =& $obj;
-
-            $php = false;
-        }
         else
             $obj =& self::$obj;
 
@@ -299,7 +294,7 @@ class Pods_Templates extends PodsComponent {
 
         $code = str_replace( '$this->', '$obj->', $code );
 
-        if ( $php && ( !defined( 'PODS_DISABLE_EVAL' ) || !PODS_DISABLE_EVAL ) ) {
+        if ( !defined( 'PODS_DISABLE_EVAL' ) || !PODS_DISABLE_EVAL ) {
             ob_start();
 
             eval( "?>$code" );
@@ -309,83 +304,9 @@ class Pods_Templates extends PodsComponent {
         else
             $out = $code;
 
-        $out = preg_replace_callback( '/({@(.*?)})/m', array( 'self', 'do_magic_tags' ), $out );
+        $out = $obj->do_magic_tags( $out );
 
         return apply_filters( 'pods_templates_do_template', $out, $code, $obj );
     }
 
-    /**
-     * Replace magic tags with their values
-     *
-     * @param string $tag The magic tag to evaluate
-     * @param object $obj The Pods object
-     *
-     * @since 1.x
-     */
-    public static function do_magic_tags ( $tag, $obj = null ) {
-        if ( !empty( $obj ) )
-            self::$obj =& $obj;
-        else
-            $obj =& self::$obj;
-
-        if ( empty( $obj ) || !is_object( $obj ) )
-            return '';
-
-        if ( is_array( $tag ) ) {
-            if ( !isset( $tag[ 2 ] ) && strlen( trim( $tag[ 2 ] ) ) < 1 )
-                return;
-
-            $tag = $tag[ 2 ];
-        }
-
-        $tag = trim( $tag, ' {@}' );
-        $tag = explode( ',', $tag );
-
-        if ( empty( $tag ) || !isset( $tag[ 0 ] ) || strlen( trim( $tag[ 0 ] ) ) < 1 )
-            return;
-
-        foreach ( $tag as $k => $v ) {
-            $tag[ $k ] = trim( $v );
-        }
-
-        $field_name = $tag[ 0 ];
-
-        if ( 'type' == $field_name )
-            $value = $obj->pod;
-        else
-            $value = $obj->field( $field_name );
-
-        $helper_name = $before = $after = '';
-
-        if ( isset( $tag[ 1 ] ) && !empty( $tag[ 1 ] ) ) {
-            $helper_name = $tag[ 1 ];
-
-            $params = array(
-                'helper' => $helper_name,
-                'value' => $value,
-                'name' => $field_name,
-                'deprecated' => self::$deprecated
-            );
-
-            if ( class_exists( 'Pods_Helpers' ) )
-                $value = Pods_Helpers::helper( $params, $obj );
-        }
-
-        if ( isset( $tag[ 2 ] ) && !empty( $tag[ 2 ] ) )
-            $before = $tag[ 2 ];
-
-        if ( isset( $tag[ 3 ] ) && !empty( $tag[ 3 ] ) )
-            $after = $tag[ 3 ];
-
-        $value = apply_filters( 'pods_templates_do_magic_tags', $value, $field_name, $helper_name, $before, $after );
-
-        if ( is_array( $value ) )
-            $value = pods_serial_comma( $value, $field_name, $obj->fields );
-
-        if ( null !== $value && false !== $value )
-            return $before . $value . $after;
-
-        return;
-
-    }
 }

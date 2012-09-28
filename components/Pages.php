@@ -120,8 +120,9 @@ class Pods_Pages extends PodsComponent {
                 return;
         }
 
-        delete_transient( 'pods_object_page' );
-        delete_transient( 'pods_object_page_' . $post->post_title );
+        pods_transient_clear( 'pods_object_page' );
+        pods_transient_clear( 'pods_object_page_' . $post->post_title );
+        pods_cache_clear( $post->post_title, 'pods_object_page_wildcard', 3600 );
     }
 
     /**
@@ -160,6 +161,9 @@ class Pods_Pages extends PodsComponent {
 
         if ( isset( PodsMeta::$post_types[ $pod[ 'name' ] ] ) )
             return;
+
+        if ( !function_exists( 'get_page_templates' ) )
+            include_once ABSPATH . 'wp-admin/includes/theme.php';
 
         $page_templates = apply_filters( 'pods_page_templates', get_page_templates() );
 
@@ -365,7 +369,7 @@ class Pods_Pages extends PodsComponent {
             if ( false !== self::$exists ) {
                 $pods = apply_filters( 'pods_global', $pods, self::$exists );
 
-                if ( ( is_object( $pods ) || 404 != $pods  ) && ( !is_object( $pods ) || !is_wp_error( $pods ) ) ) {
+                if ( !is_wp_error( $pods ) && ( is_object( $pods ) || 404 != $pods ) ) {
                     add_action( 'template_redirect', array( $this, 'template_redirect' ) );
                     add_filter( 'redirect_canonical', '__return_false' );
                     add_action( 'wp_head', array( $this, 'wp_head' ) );
@@ -469,7 +473,7 @@ class Pods_Pages extends PodsComponent {
         }
         if ( ( !defined( 'PODS_DISABLE_META' ) || !PODS_DISABLE_META ) && is_object( $pods ) && !is_wp_error( $pods ) ) {
 
-            if ( isset( $pods->meta ) && is_array( $pods->meta ) ) {
+            if ( isset( $pods->meta ) && is_array( $pods->meta ) && !empty( $pods->meta ) ) {
                 foreach ( $pods->meta as $name => $content ) {
                     if ( 'title' == $name )
                         continue;
@@ -479,7 +483,7 @@ class Pods_Pages extends PodsComponent {
                 }
             }
 
-            if ( isset( $pods->meta_properties ) && is_array( $pods->meta_properties ) ) {
+            if ( isset( $pods->meta_properties ) && is_array( $pods->meta_properties ) && !empty( $pods->meta_properties ) ) {
                 foreach ( $pods->meta_properties as $property => $content ) {
                     ?>
                 <meta property="<?php echo esc_attr( $property ); ?>" content="<?php echo esc_attr( $content ); ?>" />
@@ -502,18 +506,18 @@ class Pods_Pages extends PodsComponent {
     public function wp_title ( $title, $sep, $seplocation ) {
         global $pods;
 
-        $page_title = self::$exists[ 'title' ];
+        $page_title = trim( self::$exists[ 'title' ] );
 
-        if ( 0 < strlen( trim( $page_title ) ) ) {
+        if ( 0 < strlen( $page_title ) ) {
             if ( is_object( $pods ) && !is_wp_error( $pods ) )
-                $page_title = preg_replace_callback( "/({@(.*?)})/m", array( $pods, "parse_magic_tags" ), $page_title );
+                $page_title = $pods->do_magic_tags( $page_title );
 
             $title = ( 'right' == $seplocation ) ? "{$page_title} {$sep} " : " {$sep} {$page_title}";
         }
         else {
             $uri = explode( '?', $_SERVER[ 'REQUEST_URI' ] );
-            $uri = preg_replace( "@^([/]?)(.*?)([/]?)$@", "$2", $uri[ 0 ] );
-            $uri = preg_replace( "@(-|_)@", " ", $uri );
+            $uri = preg_replace( '@^([/]?)(.*?)([/]?)$@', '$2', $uri[ 0 ] );
+            $uri = preg_replace( '@(-|_)@', ' ', $uri );
             $uri = explode( '/', $uri );
 
             $title = '';

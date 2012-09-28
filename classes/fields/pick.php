@@ -87,14 +87,14 @@ class PodsField_Pick extends PodsField {
                 'depends-on' => array( 'pick_format_type' => 'multi' ),
                 'default' => 0,
                 'type' => 'number'
-            ),
+            ),/*
             'pick_display' => array(
                 'label' => __( 'Display Field in Selection List', 'pods' ),
                 'help' => __( 'You can use {@magic_tags} to reference field names on the related object.', 'pods' ),
                 'excludes-on' => array( 'pick_object' => 'custom-simple' ),
                 'default' => '{@name}',
                 'type' => 'text'
-            ),
+            ),*/
             'pick_where' => array(
                 'label' => __( 'Customized <em>WHERE</em>', 'pods' ),
                 'help' => __( 'help', 'pods' ),
@@ -314,12 +314,15 @@ class PodsField_Pick extends PodsField {
             $search_data->where = $options[ 'table_info' ][ 'where' ];
             $search_data->orderby = $options[ 'table_info' ][ 'orderby' ];
 
+            if ( isset( $options[ 'table_info' ][ 'pod' ] ) && is_array( $options[ 'table_info' ][ 'pod' ] ) )
+                $search_data->fields = $options[ 'table_info' ][ 'pod' ][ 'fields' ];
+
             $params = array(
                 'select' => "`t`.`{$search_data->field_id}`, `t`.`{$search_data->field_index}`",
                 'table' => $search_data->table,
-                'where' => pods_var( 'pick_where', $options, null, null, true ),
-                'orderby' => pods_var( 'pick_orderby', $options, null, null, true ),
-                'groupby' => pods_var( 'pick_groupby', $options, null, null, true )
+                'where' => pods_var_raw( 'pick_where', $options, null, null, true ),
+                'orderby' => pods_var_raw( 'pick_orderby', $options, null, null, true ),
+                'groupby' => pods_var_raw( 'pick_groupby', $options, null, null, true )
             );
 
             if ( isset( $options[ 'table_info' ][ 'pod' ] ) && !empty( $options[ 'table_info' ][ 'pod' ] ) ) {

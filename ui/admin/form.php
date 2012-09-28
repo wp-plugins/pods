@@ -1,5 +1,9 @@
 <?php
+wp_enqueue_script( 'pods' );
 wp_enqueue_style( 'pods-form' );
+
+if ( empty( $fields ) || !is_array( $fields ) )
+    $fields = $obj->pod->fields;
 
 // unset fields
 foreach ( $fields as $k => $field ) {
@@ -9,10 +13,18 @@ foreach ( $fields as $k => $field ) {
         unset( $fields[ $k ] );
 }
 
+if ( !isset( $thank_you_alt ) )
+    $thank_you_alt = $thank_you;
+
 $uri_hash = wp_create_nonce( 'pods_uri_' . $_SERVER[ 'REQUEST_URI' ] );
 $field_hash = wp_create_nonce( 'pods_fields_' . implode( ',', array_keys( $fields ) ) );
 
-$nonce = wp_create_nonce( 'pods_form_' . $pod->pod . '_' . session_id() . '_' . $pod->id() . '_' . $uri_hash . '_' . $field_hash );
+$uid = @session_id();
+
+if ( is_user_logged_in() )
+    $uid = 'user_' . get_current_user_id();
+
+$nonce = wp_create_nonce( 'pods_form_' . $pod->pod . '_' . $uid . '_' . $pod->id() . '_' . $uri_hash . '_' . $field_hash );
 
 if ( isset( $_POST[ '_pods_nonce' ] ) ) {
     $action = __( 'saved', 'pods' );
@@ -50,6 +62,9 @@ elseif ( isset( $_GET[ 'do' ] ) ) {
     else
         echo $obj->error( $error );
 }
+
+if ( !isset( $label ) )
+    $label = _e( 'Save', 'pods' );
 ?>
 
 <form action="" method="post" class="pods-submittable pods-form pods-form-pod-<?php echo $pod->pod; ?>">
@@ -86,7 +101,7 @@ elseif ( isset( $_GET[ 'do' ] ) ) {
 
                                         <div id="publishing-action">
                                             <img class="waiting" src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" alt="" />
-                                            <input type="submit" name="publish" id="publish" class="button-primary" value="<?php _e( 'Save', 'pods' ); ?>" accesskey="p" />
+                                            <input type="submit" name="publish" id="publish" class="button-primary" value="<?php echo esc_attr( $label ); ?>" accesskey="p" />
                                         </div>
                                         <!-- /#publishing-action -->
 
@@ -256,12 +271,17 @@ elseif ( isset( $_GET[ 'do' ] ) ) {
         $( document ).Pods( 'submit' );
         $( document ).Pods( 'dependency' );
         $( document ).Pods( 'confirm' );
+        $( document ).Pods( 'exit_confirm' );
     } );
 
     var pods_admin_submit_callback = function ( id ) {
         id = parseInt( id );
         var thank_you = '<?php echo addslashes( $thank_you ); ?>';
+        var thank_you_alt = '<?php echo addslashes( $thank_you_alt ); ?>';
 
-        document.location = thank_you.replace( 'X_ID_X', id );
+        if ( 'NaN' == id )
+            document.location = thank_you.replace( 'X_ID_X', id );
+        else
+            document.location = thank_you_alt.replace( 'X_ID_X', 0 );
     }
 </script>

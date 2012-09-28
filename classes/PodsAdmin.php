@@ -162,7 +162,7 @@ class PodsAdmin {
 
         if ( ( empty( $old_pods ) || 1 == $upgraded ) && false !== $results ) {
             foreach ( (array) $results as $item ) {
-                if ( !is_super_admin() && !current_user_can( 'pods_add_' . $item[ 'name' ] ) && !current_user_can( 'pods_edit_' . $item[ 'name' ] ) && !current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
+                if ( !is_super_admin() && !current_user_can( 'pods' ) && !current_user_can( 'pods_add_' . $item[ 'name' ] ) && !current_user_can( 'pods_edit_' . $item[ 'name' ] ) && !current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
                     continue;
 
                 $label = pods_var_raw( 'menu_name', $item[ 'options' ], pods_var_raw( 'label', $item, ucwords( str_replace( '_', ' ', $item[ 'name' ] ) ), null, true ), null, true );
@@ -171,12 +171,12 @@ class PodsAdmin {
                 $singular_label = pods_var_raw( 'label_singular', $item[ 'options' ], pods_var_raw( 'label', $item, ucwords( str_replace( '_', ' ', $item[ 'name' ] ) ), null, true ), null, true );
                 $plural_label = pods_var_raw( 'label', $item, ucwords( str_replace( '_', ' ', $item[ 'name' ] ) ), null, true );
 
-                $menu_icon = pods_var_raw( 'menu_icon', $item, '', null, true );
+                $menu_icon = pods_var_raw( 'menu_icon', $item[ 'options' ], '', null, true );
 
                 if ( 1 == $item[ 'options' ][ 'show_in_menu' ] ) {
                     add_object_page( $label, $label, 'read', "pods-manage-{$item['name']}", '', $menu_icon );
 
-                    if ( is_super_admin() || current_user_can( 'pods_add_' . $item[ 'name' ] ) || current_user_can( 'pods_edit_' . $item[ 'name' ] ) || current_user_can( 'pods_delete_' . $item[ 'name' ] ) ) {
+                    if ( is_super_admin() || current_user_can( 'pods' ) || current_user_can( 'pods_add_' . $item[ 'name' ] ) || current_user_can( 'pods_edit_' . $item[ 'name' ] ) || current_user_can( 'pods_delete_' . $item[ 'name' ] ) ) {
                         $all_label = $plural_label;
 
                         if ( "pods-manage-{$item['name']}" == pods_var( 'page', 'get' ) ) {
@@ -192,10 +192,10 @@ class PodsAdmin {
                         ) );
                     }
 
-                    if ( is_super_admin() || current_user_can( 'pods_add_' . $item[ 'name' ] ) ) {
+                    if ( is_super_admin() || current_user_can( 'pods' ) || current_user_can( 'pods_add_' . $item[ 'name' ] ) ) {
                         $page = "pods-add-new-{$item['name']}";
 
-                        if ( !is_super_admin() && !current_user_can( 'pods_edit_' . $item[ 'name' ] ) && !current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
+                        if ( !is_super_admin() && !current_user_can( 'pods' ) && !current_user_can( 'pods_edit_' . $item[ 'name' ] ) && !current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
                             $page = "pods-manage-{$item['name']}";
 
                         $add_label = __( 'Add New', 'pods' ) . ' ' . $singular_label;
@@ -213,7 +213,7 @@ class PodsAdmin {
                         ) );
                     }
                 }
-                elseif ( current_user_can( 'pods_add_' . $item[ 'name' ] ) || current_user_can( 'pods_edit_' . $item[ 'name' ] ) || current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
+                elseif ( is_super_admin() || current_user_can( 'pods' ) || current_user_can( 'pods_add_' . $item[ 'name' ] ) || current_user_can( 'pods_edit_' . $item[ 'name' ] ) || current_user_can( 'pods_delete_' . $item[ 'name' ] ) )
                     $submenu[] = $item;
             }
 
@@ -314,6 +314,8 @@ class PodsAdmin {
                     'function' => array( $this, 'admin_help' )
                 )
             );
+
+            add_action( 'admin_notices', array( $this, 'upgrade_notice' ) );
         }
 
         $admin_menus = apply_filters( 'pods_admin_menu', $admin_menus );
@@ -363,6 +365,15 @@ class PodsAdmin {
         }
     }
 
+    public function upgrade_notice () {
+        echo '<div class="error fade"><p>';
+        echo sprintf(
+            __( '<strong>NOTICE:</strong> Pods 2.0 requires your action to complete the upgrade. Please run the <a href="%s">Upgrade Wizard</a>.', 'pods' ),
+            admin_url( 'admin.php?page=pods-upgrade' )
+        );
+        echo '</p></div>';
+    }
+
     /**
      * Create PodsUI content for the administration pages
      */
@@ -375,7 +386,7 @@ class PodsAdmin {
 
         $actions_disabled = array( 'duplicate', 'view', 'export' );
 
-        if ( !is_super_admin() ) {
+        if ( !is_super_admin() && !current_user_can( 'pods' ) ) {
             if ( !current_user_can( 'pods_add_' . $pod ) ) {
                 $actions_disabled[] = 'add';
                 $default = 'manage';
@@ -1033,6 +1044,7 @@ class PodsAdmin {
          * Access Checking
          */
         $upload_disabled = false;
+
         if ( defined( 'PODS_DISABLE_FILE_UPLOAD' ) && true === PODS_DISABLE_FILE_UPLOAD )
             $upload_disabled = true;
         elseif ( defined( 'PODS_UPLOAD_REQUIRE_LOGIN' ) && is_bool( PODS_UPLOAD_REQUIRE_LOGIN ) && true === PODS_UPLOAD_REQUIRE_LOGIN && !is_user_logged_in() )
@@ -1040,7 +1052,12 @@ class PodsAdmin {
         elseif ( defined( 'PODS_UPLOAD_REQUIRE_LOGIN' ) && !is_bool( PODS_UPLOAD_REQUIRE_LOGIN ) && ( !is_user_logged_in() || !current_user_can( PODS_UPLOAD_REQUIRE_LOGIN ) ) )
             $upload_disabled = true;
 
-        $nonce_check = 'pods_upload_' . (int) $params->pod . '_' . session_id() . '_' . $params->uri . '_' . (int) $params->field;
+        $uid = @session_id();
+
+        if ( is_user_logged_in() )
+            $uid = 'user_' . get_current_user_id();
+
+        $nonce_check = 'pods_upload_' . (int) $params->pod . '_' . $uid . '_' . $params->uri . '_' . (int) $params->field;
 
         if ( true === $upload_disabled || !isset( $params->_wpnonce ) || false === wp_verify_nonce( $params->_wpnonce, $nonce_check ) )
             pods_error( __( 'Unauthorized request', 'pods' ), $this );
@@ -1199,7 +1216,12 @@ class PodsAdmin {
 
         $params = (object) $params;
 
-        $nonce_check = 'pods_relationship_' . (int) $params->pod . '_' . session_id() . '_' . $params->uri . '_' . (int) $params->field;
+        $uid = @session_id();
+
+        if ( is_user_logged_in() )
+            $uid = 'user_' . get_current_user_id();
+
+        $nonce_check = 'pods_relationship_' . (int) $params->pod . '_' . $uid . '_' . $params->uri . '_' . (int) $params->field;
 
         if ( !isset( $params->_wpnonce ) || false === wp_verify_nonce( $params->_wpnonce, $nonce_check ) )
             pods_error( __( 'Unauthorized request', 'pods' ), $this );

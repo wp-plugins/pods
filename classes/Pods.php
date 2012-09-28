@@ -122,11 +122,11 @@ class Pods {
 
     public $body_classes;
 
-    public $meta;
+    public $meta = array();
 
-    public $meta_properties;
+    public $meta_properties = array();
 
-    public $meta_extra;
+    public $meta_extra = '';
 
     public $sql;
 
@@ -369,8 +369,8 @@ class Pods {
         $params->traverse = array();
 
         if ( 'detail_url' == $params->name ) {
-            if ( 0 < strlen( $this->detail_page ) && class_exists( 'Pods_Templates' ) )
-                $value = get_bloginfo( 'url' ) . '/' . Pods_Templates::do_template( $this->detail_page, $this );
+            if ( 0 < strlen( $this->detail_page ) )
+                $value = get_bloginfo( 'url' ) . '/' . $this->do_magic_tags( $this->detail_page );
             elseif ( in_array( $this->pod_data[ 'type' ], array( 'post_type', 'media' ) ) )
                 $value = get_permalink( $this->id() );
         }
@@ -670,7 +670,7 @@ class Pods {
      * @return int
      * @since 2.0.0
      */
-    public function next_id( $id = null ) {
+    public function next_id ( $id = null ) {
         if ( null === $id )
             $id = $this->field( 'id' );
 
@@ -738,6 +738,8 @@ class Pods {
      * @since 2.0.0
      */
     public function find ( $params = null, $limit = 15, $where = null, $sql = null ) {
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+
         $select = '`t`.*';
         $pod_table_prefix = 't';
 
@@ -762,7 +764,7 @@ class Pods {
             'page' => (int) $this->page,
             'search' => (boolean) $this->search,
             'search_query' => pods_var( $this->search_var, 'get', '' ),
-            'search_mode' => pods_var( $this->search_var, 'get', '' ),
+            'search_mode' => $this->search_mode,
             'search_across' => true,
             'search_across_picks' => false,
             'fields' => $this->fields,
@@ -834,26 +836,35 @@ class Pods {
                     if ( 'DESC' == strtoupper( $orderby ) )
                         $order = 'DESC';
 
-                    if ( !in_array( $this->pod_data[ 'type' ], array( 'pod', 'table' ) ) ) {
-                        if ( isset( $this->pod_data[ 'object_fields' ][ $k ] ) )
-                            $key = "`t`.`{$k}`";
-                        elseif ( 'table' == $this->pod_data[ 'storage' ] && isset( $this->fields[ $k ] ) )
-                            $key = "`d`.`{$k}`";
-                        else {
-                            foreach ( $this->pod_data[ 'object_fields' ] as $object_field => $object_field_opt ) {
-                                if ( $object_field == $k || in_array( $k, $object_field_opt[ 'alias' ] ) )
-                                    $key = "`t`.`{$object_field}`";
-                            }
-                        }
+                    if ( isset( $this->fields[ $k ] ) && in_array( $this->fields[ $k ][ 'type' ], $tableless_field_types ) ) {
+                        $table = $this->api->get_table_info( $this->fields[ $k ][ 'pick_object' ], $this->fields[ $k ][ 'pick_val' ] );
+
+                        if ( !empty( $table ) )
+                            $key = "`{$k}`.`" . $table[ 'field_index' ] . '`';
                     }
-                    elseif ( 'table' == $this->pod_data[ 'storage' ] && isset( $this->fields[ $k ] ) )
-                        $key = "`t`.`{$k}`";
 
                     if ( empty( $key ) ) {
-                        $key = $k;
+                        if ( !in_array( $this->pod_data[ 'type' ], array( 'pod', 'table' ) ) ) {
+                            if ( isset( $this->pod_data[ 'object_fields' ][ $k ] ) )
+                                $key = "`t`.`{$k}`";
+                            elseif ( 'table' == $this->pod_data[ 'storage' ] && isset( $this->fields[ $k ] ) )
+                                $key = "`d`.`{$k}`";
+                            else {
+                                foreach ( $this->pod_data[ 'object_fields' ] as $object_field => $object_field_opt ) {
+                                    if ( $object_field == $k || in_array( $k, $object_field_opt[ 'alias' ] ) )
+                                        $key = "`t`.`{$object_field}`";
+                                }
+                            }
+                        }
+                        elseif ( 'table' == $this->pod_data[ 'storage' ] && isset( $this->fields[ $k ] ) )
+                            $key = "`t`.`{$k}`";
 
-                        if ( false === strpos( $key, ' ' ) )
-                            $key = "`{$key}`";
+                        if ( empty( $key ) ) {
+                            $key = $k;
+
+                            if ( false === strpos( $key, ' ' ) )
+                                $key = "`{$key}`";
+                        }
                     }
 
                     $orderby = $key;
@@ -1308,6 +1319,86 @@ class Pods {
         $output = ob_get_clean();
 
         return $this->do_hook( 'form', $output, $fields, $label, $thank_you, $this, $this->id() );
+    }
+
+    /**
+     * Replace magic tags with their values
+     *
+     * @param string $code The content to evaluate
+     * @param object $obj The Pods object
+     *
+     * @since 2.0.0
+     */
+    public function do_magic_tags( $code ) {
+        return preg_replace_callback( '/({@(.*?)})/m', array( $this, 'process_magic_tags' ), $code );
+    }
+
+    /**
+     * Replace magic tags with their values
+     *
+     * @param string $tag The magic tag to process
+     * @param object $obj The Pods object
+     *
+     * @since 2.0.2
+     */
+    public function process_magic_tags ( $tag ) {
+        if ( is_array( $tag ) ) {
+            if ( !isset( $tag[ 2 ] ) && strlen( trim( $tag[ 2 ] ) ) < 1 )
+                return;
+
+            $tag = $tag[ 2 ];
+        }
+
+        $tag = trim( $tag, ' {@}' );
+        $tag = explode( ',', $tag );
+
+        if ( empty( $tag ) || !isset( $tag[ 0 ] ) || strlen( trim( $tag[ 0 ] ) ) < 1 )
+            return;
+
+        foreach ( $tag as $k => $v ) {
+            $tag[ $k ] = trim( $v );
+        }
+
+        $field_name = $tag[ 0 ];
+
+        if ( 'type' == $field_name )
+            $value = $this->pod;
+        else
+            $value = $this->field( $field_name );
+
+        $helper_name = $before = $after = '';
+
+        if ( isset( $tag[ 1 ] ) && !empty( $tag[ 1 ] ) ) {
+            $helper_name = $tag[ 1 ];
+
+            $params = array(
+                'helper' => $helper_name,
+                'value' => $value,
+                'name' => $field_name
+            );
+
+            if ( class_exists( 'Pods_Templates' ) )
+                $params[ 'deprecated' ] = Pods_Templates::$deprecated;
+
+            if ( class_exists( 'Pods_Helpers' ) )
+                $value = Pods_Helpers::helper( $params, $this );
+        }
+
+        if ( isset( $tag[ 2 ] ) && !empty( $tag[ 2 ] ) )
+            $before = $tag[ 2 ];
+
+        if ( isset( $tag[ 3 ] ) && !empty( $tag[ 3 ] ) )
+            $after = $tag[ 3 ];
+
+        $value = apply_filters( 'pods_do_magic_tags', $value, $field_name, $helper_name, $before, $after );
+
+        if ( is_array( $value ) )
+            $value = pods_serial_comma( $value, $field_name, $this->fields );
+
+        if ( null !== $value && false !== $value )
+            return $before . $value . $after;
+
+        return;
     }
 
     /**

@@ -106,8 +106,8 @@ class Pods_Helpers extends PodsComponent {
                 return;
         }
 
-        delete_transient( 'pods_object_helper' );
-        delete_transient( 'pods_object_helper_' . $post->post_title );
+        pods_transient_clear( 'pods_object_helper' );
+        pods_transient_clear( 'pods_object_helper_' . $post->post_title );
     }
 
     /**
@@ -240,6 +240,9 @@ class Pods_Helpers extends PodsComponent {
      * @since 2.0.0
      */
     public static function helper ( $params, $obj = null ) {
+        /**
+         * @var $obj Pods
+         */
         if ( !empty( $obj ) )
             self::$obj =& $obj;
         else
@@ -264,6 +267,8 @@ class Pods_Helpers extends PodsComponent {
 
         if ( empty( $params->helper ) )
             return pods_error( 'Helper name required', $obj );
+        elseif ( !is_array( $params->helper ) )
+            $params->helper = trim( $params->helper );
 
         if ( !isset( $params->value ) )
             $params->value = null;

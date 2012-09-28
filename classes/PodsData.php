@@ -553,6 +553,7 @@ class PodsData {
             'page' => 1,
             'search' => null,
             'search_query' => null,
+            'search_mode' => null,
             'filters' => array(),
 
             'fields' => array(),
@@ -624,8 +625,14 @@ class PodsData {
         if ( !empty( $params->traverse ) )
             $this->traverse = $params->traverse;
 
+        $allowed_search_modes = array( 'int', 'text', 'text_like' );
+
+        if ( !empty( $params->search_mode ) && in_array( $params->search_mode, $allowed_search_modes ) )
+            $this->search_mode = $params->search_mode;
+
         // Get Aliases for future reference
         $selectsfound = '';
+
         if ( !empty( $params->select ) ) {
             if ( is_array( $params->select ) )
                 $selectsfound = implode( ', ', $params->select );
@@ -757,7 +764,7 @@ class PodsData {
 
                 if ( !empty( $found ) )
                     $joins = $this->traverse( $found, $params->fields );
-                elseif ( false !== $this->search )
+                elseif ( false !== $params->search )
                     $joins = $this->traverse( null, $params->fields );
             }
         }
@@ -773,19 +780,22 @@ class PodsData {
                 $where = $having = array();
 
                 foreach ( $params->fields as $key => $field ) {
-                    $attributes = $field;
+                    if ( is_array( $field ) ) {
+                        $field = pods_var( 'name', $field, $key, null, true );
+                        $attributes = $field;
+                    }
+                    else {
+                        $attributes = array(
+                            'type' => '',
+                            'options' => array()
+                        );
+                    }
 
-                    if ( !is_array( $attributes ) )
-                        $attributes = array();
-
-                    if ( !$attributes[ 'options' ][ 'search' ] )
+                    if ( isset( $attributes[ 'options' ][ 'search' ] ) && !$attributes[ 'options' ][ 'search' ] )
                         continue;
 
                     if ( in_array( $attributes[ 'type' ], array( 'date', 'time', 'datetime', 'pick', 'file' ) ) )
                         continue;
-
-                    if ( is_array( $field ) )
-                        $field = pods_var( 'name', $attributes, $key );
 
                     if ( isset( $params->filters[ $field ] ) )
                         continue;
@@ -1297,14 +1307,14 @@ class PodsData {
             else {
                 $params = array(
                     'table' => $this->table,
-                    'where' => "`t`.`{$this->field_id}` = {$id}",
+                    'where' => "`t`.`{$this->field_id}` = " . (int) $id,
                     'orderby' => "`t`.`{$this->field_id}` DESC",
                     'page' => 1,
                     'limit' => 1,
                     'search' => false
                 );
 
-                if ( 'slug' == $mode ) {
+                if ( 'slug' == $mode && !empty( $this->field_slug ) ) {
                     $id = esc_sql( $id );
                     $params[ 'where' ] = "`t`.`{$this->field_slug}` = '{$id}'";
                 }
@@ -1364,13 +1374,15 @@ class PodsData {
     public function reset ( $row = null ) {
         $row = pods_absint( $row );
 
-        if ( empty( $row ) )
-            $this->row_number = 0;
-
         $this->row = false;
 
-        if ( isset( $this->data[ $this->row_number ] ) )
-            $this->row = get_object_vars( $this->data[ $this->row_number ] );
+        if ( isset( $this->data[ $row ] ) )
+            $this->row = get_object_vars( $this->data[ $row ] );
+
+        if ( empty( $row ) )
+            $this->row_number = -1;
+        else
+            $this->row_number = $row - 1;
 
         return $this->row;
     }
