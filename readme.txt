@@ -86,6 +86,17 @@ Coming soon!
 
 OR you can just install it with WordPress by going to Plugins >> Add New >> and type this plugin's name
 
+== Screenshots ==
+
+1. Create new content types or extend existing ones
+2. Add fields of many different types, with individual options for each so you can define your content type to be what you ned it to be
+3. Post Type pods will add fields to the Post editor
+4. Taxonomy pods will add fields to the Taxonomy forms
+5. User pods will add fields to the User forms
+6. Comment pods will add fields to the Comment forms
+7. Media pods will add fields to the Media forms
+8. Create Advanced Content Types that exist only as you define them, outside of the normal WP object structure
+
 == Changelog ==
 
 = 2.0.2 - September 27th, 2012 =
