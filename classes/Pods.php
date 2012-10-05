@@ -138,6 +138,7 @@ class Pods {
      *
      * @license http://www.gnu.org/licenses/gpl-2.0.html
      * @since 1.0.0
+     * @link http://podsframework.org/docs/pods/
      */
     public function __construct ( $pod = null, $id = null ) {
         $this->api = pods_api( $pod );
@@ -223,11 +224,15 @@ class Pods {
     }
 
     /**
-     * Return data array from a find
+     * Return an array of all rows returned from a find() call.
      *
-     * @return array
+     * Most of the time, you will want to loop through data using fetch()
+     * instead of using this function.
+     *
+     * @return array|bool An array of all rows returned from a find() call, or false if no items returned
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/data/
      */
     public function data () {
         $this->do_hook( 'data' );
@@ -271,28 +276,29 @@ class Pods {
     }
 
     /**
-     * Return a field's value(s), through display hook of field type
+     * Return the output for a field. If you want the raw value for use in PHP for custom manipulation,
+     * you will want to use field() instead. This function will automatically convert arrays into a
+     * list of text such as "Rick, John, and Gary"
      *
-     * @param array $params An associative array of parameters (OR the Field name)
+     * @param string|array $name The field name, or an associative array of parameters
      * @param boolean $single (optional) For tableless fields, to return an array or the first
      *
-     * @return bool|int|mixed|null|string
+     * @return string|null|false The output from the field, null if the field doesn't exist, false if no value returned for tableless fields
      * @since 2.0.0
+     * @link http://podsframework.org/docs/display/
      */
-    public function display ( $params, $single = false ) {
+    public function display ( $name, $single = false ) {
         $defaults = array(
-            'name' => $params,
+            'name' => $name,
             'orderby' => null,
             'single' => $single,
             'in_form' => false
         );
 
-        if ( is_array( $params ) || is_object( $params ) )
-            $params = (object) array_merge( $defaults, (array) $params );
+        if ( is_array( $name ) || is_object( $name ) )
+            $params = (object) array_merge( $defaults, (array) $name );
         else
             $params = (object) $defaults;
-
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
 
         $value = $this->field( $params, $single );
 
@@ -314,24 +320,29 @@ class Pods {
     }
 
     /**
-     * Return a field's value(s)
+     * Return the value for a field.
      *
-     * @param array $params An associative array of parameters (OR the Field name)
-     * @param boolean $single (optional) For tableless fields, to return an array or the first
+     * If you are getting a field for output in a theme, most of the time you will want to use display() instead.
      *
-     * @return bool|int|mixed|null
+     * This function will return arrays for relationship and file fields.
+     *
+     * @param string|array $name The field name, or an associative array of parameters
+     * @param boolean $single (optional) For tableless fields, to return the whole array or the just the first item
+     *
+     * @return mixed|null Value returned depends on the field type, null if the field doesn't exist, false if no value returned for tableless fields
      * @since 2.0.0
+     * @link http://podsframework.org/docs/field/
      */
-    public function field ( $params, $single = false ) {
+    public function field ( $name, $single = false ) {
         $defaults = array(
-            'name' => $params,
+            'name' => $name,
             'orderby' => null,
             'single' => $single,
             'in_form' => false
         );
 
-        if ( is_array( $params ) || is_object( $params ) )
-            $params = (object) array_merge( $defaults, (array) $params );
+        if ( is_array( $name ) || is_object( $name ) )
+            $params = (object) array_merge( $defaults, (array) $name );
         else
             $params = (object) $defaults;
 
@@ -358,8 +369,8 @@ class Pods {
         if ( $this->data->field_id == $params->name ) {
             if ( isset( $this->row[ $params->name ] ) )
                 return $this->row[ $params->name ];
-            else
-                return 0;
+
+            return 0;
         }
 
         $value = null;
@@ -413,8 +424,6 @@ class Pods {
                     if ( 'meta' == $this->pod_data[ 'storage' ] ) {
                         if ( !in_array( $this->fields[ $params->name ][ 'type' ], $tableless_field_types ) )
                             $simple = true;
-
-                        $params->single = true;
                     }
 
                     if ( in_array( $this->fields[ $params->name ][ 'type' ], $tableless_field_types ) ) {
@@ -647,6 +656,9 @@ class Pods {
             $this->row[ $params->name ] = $value;
         }
 
+        if ( true === $params->single && is_array( $value ) && isset( $value[ 0 ] ) )
+            $value = $value[ 0 ];
+
         $value = $this->do_hook( 'field', $value, $this->row, $params );
 
         return $value;
@@ -727,15 +739,16 @@ class Pods {
     }
 
     /**
-     * Search and filter items
+     * Find items of a pod, much like WP_Query, but with advanced table handling.
      *
      * @param array $params An associative array of parameters
-     * @param int $limit (optional) Limit the number of items to find
-     * @param string $where (optional) SQL WHERE declaration to use
-     * @param string $sql (optional)
+     * @param int $limit (optional) (deprecated) Limit the number of items to find, use -1 to return all items with no limit
+     * @param string $where (optional) (deprecated) SQL WHERE declaration to use
+     * @param string $sql (optional) (deprecated) For advanced use, a custom SQL query to run
      *
      * @return \Pods The pod object
      * @since 2.0.0
+     * @link http://podsframework.org/docs/find/
      */
     public function find ( $params = null, $limit = 15, $where = null, $sql = null ) {
         $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
@@ -755,20 +768,31 @@ class Pods {
             'table' => $this->data->table,
             'select' => $select,
             'join' => null,
+
             'where' => $where,
             'groupby' => null,
             'having' => null,
             'orderby' => null,
+
             'limit' => (int) $limit,
             'offset' => null,
             'page' => (int) $this->page,
+            'page_var' => $this->page_var,
+            'pagination' => (boolean) $this->pagination,
+
             'search' => (boolean) $this->search,
-            'search_query' => pods_var( $this->search_var, 'get', '' ),
+            'search_var' => $this->search_var,
+            'search_query' => null,
             'search_mode' => $this->search_mode,
-            'search_across' => true,
+            'search_across' => false,
             'search_across_picks' => false,
+            'search_across_files' => false,
+
             'fields' => $this->fields,
-            'sql' => $sql
+            'sql' => $sql,
+
+            'expires' => null,
+            'cache_mode' => 'cache'
         );
 
         if ( is_array( $params ) )
@@ -782,8 +806,14 @@ class Pods {
 
         $this->limit = (int) $params->limit;
         $this->page = (int) $params->page;
+        $this->page_var = $params->page_var;
+        $this->pagination = (boolean) $params->pagination;
         $this->search = (boolean) $params->search;
+        $this->search_var = $params->search_var;
         $params->join = (array) $params->join;
+
+        if ( empty( $params->search_query ) )
+            $params->search_query = pods_var( $this->search_var, 'get', '' );
 
         // Allow where array ( 'field' => 'value' )
         if ( !empty( $params->where ) && is_array( $params->where ) ) {
@@ -911,15 +941,19 @@ class Pods {
     }
 
     /**
-     * Fetch a row
+     * Fetch an item from a Pod. If $id is null, it will return the next item in the list after running find().
+     * You can rewind the list back to the start by using reset().
+     *
+     * Providing an $id will fetch a specific item from a Pod, much like a call to pods(), and can handle either an id or slug.
      *
      * @see PodsData::fetch
      *
-     * @param int $id ID of the row to fetch
+     * @param int $id ID or slug of the item to fetch
      *
-     * @return array The row array
+     * @return array An array of fields from the row
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/fetch/
      */
     public function fetch ( $id = null ) {
         $this->do_hook( 'fetch', $id );
@@ -938,9 +972,10 @@ class Pods {
      *
      * @param int $row ID of the row to reset to
      *
-     * @return array The row array
+     * @return \Pods The pod object
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/reset/
      */
     public function reset ( $row = null ) {
         $this->do_hook( 'reset', $row );
@@ -949,16 +984,19 @@ class Pods {
 
         $this->sql = $this->data->sql;
 
-        return $this->row;
+        return $this;
     }
 
     /**
-     * Fetch the total row count returned
+     * Fetch the total row count returned by the last call to find(), based on the 'limit' parameter set.
+     *
+     * This is different than the total number of rows found in the database, which you can get with total_found().
      *
      * @see PodsData::total
      *
-     * @return int Number of rows returned by find()
+     * @return int Number of rows returned by find(), based on the 'limit' parameter set
      * @since 2.0.0
+     * @link http://podsframework.org/docs/total/
      */
     public function total () {
         $this->do_hook( 'total' );
@@ -969,12 +1007,15 @@ class Pods {
     }
 
     /**
-     * Fetch the total row count total
+     * Fetch the total amount of rows found by the last call to find(), regardless of the 'limit' parameter set.
+     *
+     * This is different than the total number of rows limited by the current call, which you can get with total().
      *
      * @see PodsData::total_found
      *
-     * @return int Number of rows found by find()
+     * @return int Number of rows returned by find(), regardless of the 'limit' parameter
      * @since 2.0.0
+     * @link http://podsframework.org/docs/total-found/
      */
     public function total_found () {
         $this->do_hook( 'total_found' );
@@ -999,16 +1040,20 @@ class Pods {
     }
 
     /**
-     * Add an item
+     * Add an item to a Pod by giving an array of field data or set a specific field to
+     * a specific value if you're just wanting to add a new item but only set one field.
+     *
+     * You may be looking for save() in most cases where you're setting a specific field.
      *
      * @see PodsAPI::save_pod_item
      *
      * @param array|string $data Either an associative array of field information or a field name
-     * @param string $value (optional) Value of the data to add, if data is string
+     * @param mixed $value (optional) Value of the field, if $data is a field name
      *
      * @return int The item ID
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/add/
      */
     public function add ( $data = null, $value = null ) {
         if ( null !== $value )
@@ -1025,17 +1070,21 @@ class Pods {
     }
 
     /**
-     * Save an item
+     * Save an item by giving an array of field data or set a specific field to a specific value.
+     *
+     * Though this function has the capacity to add new items, best practice should direct you
+     * to use add() for that instead.
      *
      * @see PodsAPI::save_pod_item
      *
-     * @param null $data Either an associative array of field information or a field name
-     * @param null $value (optional) Value of the data to add, if data is string
-     * @param null $id (optional) Id of the pod item to update
+     * @param array|string $data Either an associative array of field information or a field name
+     * @param mixed $value (optional) Value of the field, if $data is a field name
+     * @param int $id (optional) ID of the pod item to update
      *
      * @return int The item ID
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/save/
      */
     public function save ( $data = null, $value = null, $id = null ) {
         if ( null !== $value )
@@ -1059,11 +1108,12 @@ class Pods {
      *
      * @see PodsAPI::delete_pod_item
      *
-     * @param int $id Id of the pod item to delete
+     * @param int $id ID of the Pod item to delete
      *
-     * @return bool
+     * @return bool Whether the item was successfully deleted
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/delete/
      */
     public function delete ( $id = null ) {
         if ( null === $id )
@@ -1089,6 +1139,7 @@ class Pods {
      * @return int|bool ID of the new pod item
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/duplicate/
      */
     public function duplicate ( $id = null ) {
         if ( null === $id )
@@ -1115,6 +1166,7 @@ class Pods {
      * @return array|bool Data array of the exported pod item
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/export/
      */
     public function export ( $fields = null, $id = null ) {
         if ( null === $id )
@@ -1139,6 +1191,7 @@ class Pods {
      *
      * @return bool|mixed
      * @since 2.0.0
+     * @link http://podsframework.org/docs/pagination/
      */
     public function pagination ( $params = null ) {
         $url = pods_var_update( null, null, $this->page_var );
@@ -1198,6 +1251,7 @@ class Pods {
      * Display the list filters
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/filters/
      */
     public function filters ( $params = null ) {
         // handle $params deprecated
@@ -1251,6 +1305,7 @@ class Pods {
      * @return mixed Template output
      *
      * @since 2.0.0
+     * @link http://podsframework.org/docs/template/
      */
     public function template ( $template, $code = null, $deprecated = false ) {
         if ( class_exists( 'Pods_Templates' ) )
@@ -1258,14 +1313,17 @@ class Pods {
     }
 
     /**
-     * Build form for handling add / edit
+     * Embed a form to add / edit a pod item from within your theme. Provide an array of $fields to include
+     * and override options where needed. For WP object based Pods, you can pass through the WP object
+     * field names too, such as "post_title" or "post_content" for example.
      *
-     * @param array $params Fields to show on the form
-     * @param string $label
-     * @param string $thank_you Thank you message
+     * @param array $params (optional) Fields to show on the form, defaults to all fields
+     * @param string $label (optional) Save button label, defaults to "Save Changes"
+     * @param string $thank_you (optional) Thank you URL to send to upon success
      *
      * @return bool|mixed
      * @since 2.0.0
+     * @link http://podsframework.org/docs/form/
      */
     public function form ( $params = null, $label = null, $thank_you = null ) {
         $defaults = array(
@@ -1285,10 +1343,18 @@ class Pods {
 
         $fields = $params[ 'fields' ];
 
-        if ( empty( $fields ) )
-            $fields = $this->fields;
+        $object_fields = (array) pods_var_raw( 'object_fields', $this->pod_data, array(), null, true );
+
+        if ( empty( $fields ) ) {
+            // Add core object fields if $fields is empty
+            $fields = array_merge( $object_fields, $this->fields );
+        }
         else {
-            foreach ( $fields as $k => $field ) {
+            $form_fields = $fields; // Temporary
+
+            $fields = array();
+
+            foreach ( $form_fields as $k => $field ) {
                 $name = $k;
 
                 if ( !is_array( $field ) ) {
@@ -1298,11 +1364,15 @@ class Pods {
                 elseif ( isset( $field[ 'name' ] ) )
                     $name = $field[ 'name' ];
 
-                if ( !isset( $this->fields[ $name ] ) || pods_var_raw( 'hidden', $field, false, null, true ) )
-                    unset( $fields[ $k ] );
-                else
-                    $fields[ $k ] = array_merge( $this->fields[ $name ], $field );
+                if ( pods_var_raw( 'hidden', $field, false, null, true ) )
+                    continue;
+                elseif ( isset( $object_fields[ $name ] ) )
+                    $fields[ $name ] = array_merge( $object_fields[ $name ], $field );
+                elseif ( isset( $this->fields[ $name ] ) )
+                    $fields[ $name ] = array_merge( $this->fields[ $name ], $field );
             }
+
+            unset( $form_fields ); // Cleanup
         }
 
         $label = $params[ 'label' ];
@@ -1313,6 +1383,15 @@ class Pods {
         $thank_you = $params[ 'thank_you' ];
 
         ob_start();
+
+        if ( empty( $thank_you ) ) {
+            $thank_you = pods_var_update( array( 'success' => true ) );
+
+            if ( 1 == pods_var( 'success', 'get', 0 ) ) {
+                echo '<div id="message" class="pods-form-front-success">'
+                     . __( 'Form submitted successfully', 'pods' ) . '</div>';
+            }
+        }
 
         pods_view( PODS_DIR . 'ui/front/form.php', compact( array_keys( get_defined_vars() ) ) );
 
@@ -1341,7 +1420,7 @@ class Pods {
      *
      * @since 2.0.2
      */
-    public function process_magic_tags ( $tag ) {
+    private function process_magic_tags ( $tag ) {
         if ( is_array( $tag ) ) {
             if ( !isset( $tag[ 2 ] ) && strlen( trim( $tag[ 2 ] ) ) < 1 )
                 return;
@@ -1361,27 +1440,33 @@ class Pods {
 
         $field_name = $tag[ 0 ];
 
-        if ( 'type' == $field_name )
-            $value = $this->pod;
-        else
-            $value = $this->field( $field_name );
-
         $helper_name = $before = $after = '';
 
-        if ( isset( $tag[ 1 ] ) && !empty( $tag[ 1 ] ) ) {
+        if ( isset( $tag[ 1 ] ) && !empty( $tag[ 1 ] ) && class_exists( 'Pods_Helpers' ) ) {
+            if ( 'type' == $field_name )
+                $value = $this->pod;
+            else
+                $value = $this->field( $field_name );
+
             $helper_name = $tag[ 1 ];
 
             $params = array(
                 'helper' => $helper_name,
                 'value' => $value,
-                'name' => $field_name
+                'name' => $field_name,
+                'deprecated' => false
             );
 
             if ( class_exists( 'Pods_Templates' ) )
                 $params[ 'deprecated' ] = Pods_Templates::$deprecated;
 
-            if ( class_exists( 'Pods_Helpers' ) )
-                $value = Pods_Helpers::helper( $params, $this );
+            $value = Pods_Helpers::helper( $params, $this );
+        }
+        else {
+            if ( 'type' == $field_name )
+                $value = $this->pod;
+            else
+                $value = $this->display( $field_name );
         }
 
         if ( isset( $tag[ 2 ] ) && !empty( $tag[ 2 ] ) )

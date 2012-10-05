@@ -14,6 +14,12 @@ class Pods_Deprecated
 
     var $datatype_id;
 
+    var $meta = array();
+
+    var $meta_properties = array();
+
+    var $meta_extra = '';
+
     /**
      * Constructor - Pods Deprecated functionality (pre 2.0)
      *
@@ -340,8 +346,8 @@ class Pods_Deprecated
     public function publicForm ( $fields = null, $label = 'Save Changes', $thankyou_url = null ) {
         pods_deprecated( 'Pods::publicForm', '2.0.0', 'Pods::form' );
 
-
         if ( !empty( $fields ) ) {
+            // Just update field name here, form() will handle the rest
             foreach ( $fields as $k => $field ) {
                 $name = $k;
 
@@ -355,10 +361,9 @@ class Pods_Deprecated
                 if ( in_array( $name, array( 'created', 'modified', 'author' ) ) && isset( $this->obj->fields[ $name . '2' ] ) )
                     $name .= '2';
 
-                if ( !isset( $this->obj->fields[ $name ] ) || pods_var_raw( 'hidden', $field, false, null, true ) )
-                    unset( $fields[ $k ] );
-                else
-                    $fields[ $k ] = array_merge( $this->obj->fields[ $name ], $field );
+                $field[ 'name' ] = $name;
+
+                $fields[ $k ] = $field;
             }
         }
 

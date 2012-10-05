@@ -561,14 +561,15 @@ class PodsMeta {
             }
         }
 
-        // Fix for Pods doing it's own sanitization
-        $data = stripslashes_deep( $data );
-
         do_action( 'pods_meta_save_pre_post', $data, $pod, $id, $groups, $post, $post->post_type );
         do_action( "pods_meta_save_pre_post_{$post->post_type}", $data, $pod, $id, $groups, $post );
 
-        if ( !empty( $pod ) )
+        if ( !empty( $pod ) ) {
+            // Fix for Pods doing it's own sanitization
+            $data = stripslashes_deep( $data );
+
             $pod->save( $data );
+        }
         elseif ( !empty( $id ) ) {
             pods_no_conflict_on( 'post' );
 
@@ -681,13 +682,14 @@ class PodsMeta {
             }
         }
 
-        // Fix for Pods doing it's own sanitization
-        $data = stripslashes_deep( $data );
-
         do_action( 'pods_meta_save_pre_media', $data, $pod, $id, $groups, $post, $attachment );
 
-        if ( !empty( $pod ) )
+        if ( !empty( $pod ) ) {
+            // Fix for Pods doing it's own sanitization
+            $data = stripslashes_deep( $data );
+
             $pod->save( $data );
+        }
         elseif ( !empty( $id ) ) {
             pods_no_conflict_on( 'post' );
 
@@ -806,14 +808,15 @@ class PodsMeta {
             }
         }
 
-        // Fix for Pods doing it's own sanitization
-        $data = stripslashes_deep( $data );
-
         do_action( 'pods_meta_save_pre_taxonomy', $data, $pod, $id, $groups, $term_id, $term_taxonomy_id, $taxonomy );
         do_action( "pods_meta_save_pre_taxonomy_{$taxonomy}", $data, $pod, $id, $groups, $term_id, $term_taxonomy_id, $taxonomy );
 
-        if ( !empty( $pod ) )
+        if ( !empty( $pod ) ) {
+            // Fix for Pods doing it's own sanitization
+            $data = stripslashes_deep( $data );
+
             $pod->save( $data );
+        }
 
         do_action( 'pods_meta_save_taxonomy', $data, $pod, $id, $groups, $term_id, $term_taxonomy_id, $taxonomy );
         do_action( "pods_meta_save_taxonomy_{$taxonomy}", $data, $pod, $id, $groups, $term_id, $term_taxonomy_id, $taxonomy );
@@ -915,11 +918,12 @@ class PodsMeta {
             }
         }
 
-        // Fix for Pods doing it's own sanitization
-        $data = stripslashes_deep( $data );
+        if ( !empty( $pod ) ) {
+            // Fix for Pods doing it's own sanitization
+            $data = stripslashes_deep( $data );
 
-        if ( !empty( $pod ) )
             $pod->save( $data );
+        }
         elseif ( !empty( $id ) ) {
             pods_no_conflict_on( 'user' );
 
@@ -1046,8 +1050,10 @@ class PodsMeta {
             $comment_type = $comment_type->comment_type;
         }
 
-        if ( is_object( $comment_type ) || 'comment' != $comment_type )
+        if ( is_object( $comment_type ) )
             return;
+        elseif ( empty( $comment_type ) )
+            $comment_type = 'comment';
 
         $groups = $this->groups_get( 'comment', $comment_type );
 
@@ -1138,13 +1144,14 @@ class PodsMeta {
             }
         }
 
-        // Fix for Pods doing it's own sanitization
-        $data = stripslashes_deep( $data );
-
         do_action( 'pods_meta_save_pre_comment', $data, $pod, $id, $groups );
 
-        if ( !empty( $pod ) )
+        if ( !empty( $pod ) ) {
+            // Fix for Pods doing it's own sanitization
+            $data = stripslashes_deep( $data );
+
             $pod->save( $data );
+        }
         elseif ( !empty( $id ) ) {
             pods_no_conflict_on( 'comment' );
 
@@ -1459,7 +1466,7 @@ class PodsMeta {
 
         $meta_cache = array();
 
-        if ( !$single )
+        if ( !$single && isset( $GLOBALS[ 'wp_object_cache' ] ) && is_object( $GLOBALS[ 'wp_object_cache' ] ) )
             $meta_cache = wp_cache_get( $object_id, $meta_type . '_meta' );
 
         if ( !$single || empty( $meta_cache ) || !is_array( $meta_cache ) )
@@ -1479,7 +1486,7 @@ class PodsMeta {
             }
         }
 
-        if ( !$single )
+        if ( !$single && isset( $GLOBALS[ 'wp_object_cache' ] ) && is_object( $GLOBALS[ 'wp_object_cache' ] ) )
             wp_cache_add( $object_id, $meta_cache, $meta_type . '_meta' );
 
         pods_no_conflict_off( $meta_type );

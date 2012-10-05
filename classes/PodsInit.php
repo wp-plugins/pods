@@ -41,6 +41,7 @@ class PodsInit {
         add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 
         add_action( 'init', array( $this, 'activate_install' ), 9 );
+        add_action( 'widgets_init', array( $this, 'register_widgets' ) );
 
         if ( !empty( self::$version ) ) {
             // Init Pods Form
@@ -58,7 +59,7 @@ class PodsInit {
                 add_action( 'init', array( $this, 'admin_init' ), 12 );
 
             // Show admin bar links
-            //add_action( 'wp_before_admin_bar_render', array( $this, 'admin_bar_links' ) );
+            add_action( 'admin_bar_menu', array( $this, 'admin_bar_links' ), 81 );
 
             // Init Pods Meta
             self::$meta = pods_meta()->init();
@@ -117,8 +118,6 @@ class PodsInit {
         $this->register_assets();
 
         $this->register_pods();
-
-        add_action( 'widgets_init', array( $this, 'register_widgets' ) );
     }
 
     /**
@@ -225,15 +224,15 @@ class PodsInit {
         $existing_post_types = get_post_types();
         $existing_taxonomies = get_taxonomies();
 
-        $wp_cpt_ct = pods_transient_get( 'pods_wp_cpt_ct' );
+        $pods_cpt_ct = pods_transient_get( 'pods_wp_cpt_ct' );
 
-        if ( false === $wp_cpt_ct ) {
-            $wp_cpt_ct = array(
+        if ( false === $pods_cpt_ct ) {
+            $pods_cpt_ct = array(
                 'post_types' => array(),
                 'taxonomies' => array()
             );
 
-            $wp_post_types = $wp_taxonomies = array();
+            $pods_post_types = $pods_taxonomies = array();
             $supported_post_types = $supported_taxonomies = array();
 
             foreach ( $post_types as $post_type ) {
@@ -312,7 +311,7 @@ class PodsInit {
                     $capability_type = pods_var( 'capability_type_custom', $post_type, 'post' );
 
                 // Register Post Type
-                $wp_post_types[ pods_var( 'name', $post_type ) ] = array(
+                $pods_post_types[ pods_var( 'name', $post_type ) ] = array(
                     'label' => $cpt_label,
                     'labels' => $cpt_labels,
                     'description' => esc_html( pods_var_raw( 'description', $post_type ) ),
@@ -341,7 +340,7 @@ class PodsInit {
                 // Taxonomies
                 $cpt_taxonomies = array();
                 $_taxonomies = get_taxonomies();
-                $_taxonomies = array_merge_recursive( $_taxonomies, $wp_taxonomies );
+                $_taxonomies = array_merge_recursive( $_taxonomies, $pods_taxonomies );
                 $ignore = array( 'nav_menu', 'link_category', 'post_format' );
 
                 foreach ( $_taxonomies as $taxonomy => $label ) {
@@ -405,7 +404,7 @@ class PodsInit {
                     $ct_rewrite = $ct_rewrite_array;
 
                 // Register Taxonomy
-                $wp_taxonomies[ pods_var( 'name', $taxonomy ) ] = array(
+                $pods_taxonomies[ pods_var( 'name', $taxonomy ) ] = array(
                     'label' => $ct_label,
                     'labels' => $ct_labels,
                     'public' => (boolean) pods_var( 'public', $taxonomy, true ),
@@ -421,7 +420,7 @@ class PodsInit {
                 // Post Types
                 $ct_post_types = array();
                 $_post_types = get_post_types();
-                $_post_types = array_merge_recursive( $_post_types, $wp_post_types );
+                $_post_types = array_merge_recursive( $_post_types, $pods_post_types );
                 $ignore = array( 'attachment', 'revision', 'nav_menu_item' );
 
                 foreach ( $_post_types as $post_type => $options ) {
@@ -442,34 +441,34 @@ class PodsInit {
                     $supported_post_types[ pods_var( 'name', $taxonomy ) ] = $ct_post_types;
             }
 
-            $wp_post_types = apply_filters( 'pods_wp_post_types', $wp_post_types );
-            $wp_taxonomies = apply_filters( 'pods_wp_taxonomies', $wp_taxonomies );
+            $pods_post_types = apply_filters( 'pods_wp_post_types', $pods_post_types );
+            $pods_taxonomies = apply_filters( 'pods_wp_taxonomies', $pods_taxonomies );
 
             $supported_post_types = apply_filters( 'pods_wp_supported_post_types', $supported_post_types );
             $supported_taxonomies = apply_filters( 'pods_wp_supported_taxonomies', $supported_taxonomies );
 
-            foreach ( $wp_taxonomies as $taxonomy => $options ) {
+            foreach ( $pods_taxonomies as $taxonomy => $options ) {
                 $ct_post_types = null;
                 if ( isset( $supported_post_types[ $taxonomy ] ) && !empty( $supported_post_types[ $taxonomy ] ) )
                     $ct_post_types = $supported_post_types[ $taxonomy ];
 
-                $wp_cpt_ct[ 'taxonomies' ][ $taxonomy ] = array(
+                $pods_cpt_ct[ 'taxonomies' ][ $taxonomy ] = array(
                     'post_types' => $ct_post_types,
                     'options' => $options
                 );
             }
 
-            foreach ( $wp_post_types as $post_type => $options ) {
+            foreach ( $pods_post_types as $post_type => $options ) {
                 if ( isset( $supported_taxonomies[ $post_type ] ) && !empty( $supported_taxonomies[ $post_type ] ) )
                     $options[ 'taxonomies' ] = $supported_taxonomies[ $post_type ];
 
-                $wp_cpt_ct[ 'post_types' ][ $post_type ] = $options;
+                $pods_cpt_ct[ 'post_types' ][ $post_type ] = $options;
             }
 
-            pods_transient_set( 'pods_wp_cpt_ct', $wp_cpt_ct );
+            pods_transient_set( 'pods_wp_cpt_ct', $pods_cpt_ct );
         }
 
-        foreach ( $wp_cpt_ct[ 'taxonomies' ] as $taxonomy => $options ) {
+        foreach ( $pods_cpt_ct[ 'taxonomies' ] as $taxonomy => $options ) {
             $ct_post_types = $options[ 'post_types' ];
             $options = $options[ 'options' ];
 
@@ -480,7 +479,7 @@ class PodsInit {
             register_taxonomy( $taxonomy, $ct_post_types, $options );
         }
 
-        foreach ( $wp_cpt_ct[ 'post_types' ] as $post_type => $options ) {
+        foreach ( $pods_cpt_ct[ 'post_types' ] as $post_type => $options ) {
             $options = apply_filters( 'pods_register_post_type_' . $post_type, $options );
 
             $options = self::object_label_fix( $options, 'post_type' );
@@ -503,16 +502,16 @@ class PodsInit {
         $post_types = PodsMeta::$post_types;
         $existing_post_types = get_post_types();
 
-        $wp_cpt_ct = pods_transient_get( 'pods_wp_cpt_ct' );
+        $pods_cpt_ct = pods_transient_get( 'pods_wp_cpt_ct' );
 
-        if ( empty( $wp_cpt_ct ) || empty( $post_types ) )
+        if ( empty( $pods_cpt_ct ) || empty( $post_types ) )
             return $messages;
 
         foreach ( $post_types as $post_type ) {
-            if ( !isset( $wp_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ] ) )
+            if ( !isset( $pods_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ] ) )
                 continue;
 
-            $labels = self::object_label_fix( $wp_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ], 'post_type' );
+            $labels = self::object_label_fix( $pods_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ], 'post_type' );
             $labels = $labels[ 'labels' ];
 
             $messages[ $post_type[ 'name' ] ] = array(
@@ -535,7 +534,7 @@ class PodsInit {
                 10 => sprintf( __( '%s draft updated. <a target="_blank" href="%s">Preview %s</a>', 'pods' ), $labels[ 'singular_name' ], esc_url( add_query_arg( 'preview', 'true', get_permalink( $post_ID ) ) ), $labels[ 'singular_name' ] )
             );
 
-            if ( false === (boolean) $wp_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ][ 'public' ] ) {
+            if ( false === (boolean) $pods_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ][ 'public' ] ) {
                 $messages[ $post_type[ 'name' ] ][ 1 ] = sprintf( __( '%s updated.', 'pods' ), $labels[ 'singular_name' ] );
                 $messages[ $post_type[ 'name' ] ][ 6 ] = sprintf( __( '%s published.', 'pods' ), $labels[ 'singular_name' ] );
                 $messages[ $post_type[ 'name' ] ][ 8 ] = sprintf( __( '%s submitted.', 'pods' ), $labels[ 'singular_name' ] );
@@ -664,30 +663,37 @@ class PodsInit {
         // Setup DB tables
         $pods_version = self::$version;
 
-        $install = false;
-
         if ( 0 < strlen( $pods_version ) ) {
-            if ( !empty( $pods_version ) && version_compare( '2.0.0-a-1', $pods_version, '<' ) && version_compare( $pods_version, PODS_VERSION, '<' ) ) {
-                do_action( 'pods_update', PODS_VERSION, $pods_version, $_blog_id );
+            if ( PODS_VERSION != $pods_version ) {
+                // Update alpha / beta sites
+                if ( version_compare( '2.0.0-a-1', $pods_version, '<=' ) && version_compare( $pods_version, '2.0.0-b-15', '<=' ) ) {
+                    do_action( 'pods_update', PODS_VERSION, $pods_version, $_blog_id );
 
-                if ( false !== apply_filters( 'pods_update_run', null, PODS_VERSION, $pods_version, $_blog_id ) && !isset( $_GET[ 'pods_bypass_update' ] ) )
-                    include( PODS_DIR . 'sql/update.php' );
+                    if ( false !== apply_filters( 'pods_update_run', null, PODS_VERSION, $pods_version, $_blog_id ) && !isset( $_GET[ 'pods_bypass_update' ] ) ) {
+                        include( PODS_DIR . 'sql/update-2.0-beta.php' );
+                        include( PODS_DIR . 'sql/update.php' );
+                    }
 
-                do_action( 'pods_update_post', PODS_VERSION, $pods_version, $_blog_id );
+                    do_action( 'pods_update_post', PODS_VERSION, $pods_version, $_blog_id );
+                }
+                else {
+                    do_action( 'pods_update', PODS_VERSION, $pods_version, $_blog_id );
+
+                    if ( false !== apply_filters( 'pods_update_run', null, PODS_VERSION, $pods_version, $_blog_id ) && !isset( $_GET[ 'pods_bypass_update' ] ) )
+                        include( PODS_DIR . 'sql/update.php' );
+
+                    do_action( 'pods_update_post', PODS_VERSION, $pods_version, $_blog_id );
+                }
 
                 update_option( 'pods_framework_version', PODS_VERSION );
-            }
 
-            if ( $pods_version != PODS_VERSION )
                 pods_api()->cache_flush_pods();
+            }
         }
-        else
-            $install = true;
-
-        if ( $install ) {
+        else {
             do_action( 'pods_install', PODS_VERSION, $pods_version, $_blog_id );
 
-            if ( false !== apply_filters( 'pods_install_run', null, PODS_VERSION, $pods_version, $_blog_id ) && !isset( $_GET[ 'pods_bypass_install' ] ) ) {
+            if ( ( !defined( 'PODS_TABLELESS' ) || !PODS_TABLELESS ) && false !== apply_filters( 'pods_install_run', null, PODS_VERSION, $pods_version, $_blog_id ) && !isset( $_GET[ 'pods_bypass_install' ] ) ) {
                 $sql = file_get_contents( PODS_DIR . 'sql/dump.sql' );
                 $sql = apply_filters( 'pods_install_sql', $sql, PODS_VERSION, $pods_version, $_blog_id );
 
@@ -717,6 +723,8 @@ class PodsInit {
             do_action( 'pods_install_post', PODS_VERSION, $pods_version, $_blog_id );
 
             update_option( 'pods_framework_version', PODS_VERSION );
+
+            pods_api()->cache_flush_pods();
         }
 
         // Restore DB table prefix (if switched)
@@ -809,14 +817,17 @@ class PodsInit {
         $widgets = array(
             'PodsWidgetSingle',
             'PodsWidgetList',
-            'PodsWidgetColumn'
+            'PodsWidgetField'
         );
 
         if ( defined( 'PODS_DEVELOPER' ) && PODS_DEVELOPER )
             $widgets[] = 'PodsWidgetForm';
 
         foreach ( $widgets as $widget ) {
-            require_once PODS_DIR . 'classes/widgets/' . basename( $widget ) . '.php';
+            if ( !file_exists( PODS_DIR . 'classes/widgets/' . $widget . '.php' ) )
+                continue;
+
+            require_once PODS_DIR . 'classes/widgets/' . $widget . '.php';
 
             register_widget( $widget );
         }
@@ -827,39 +838,43 @@ class PodsInit {
      */
     public function admin_bar_links () {
         global $wp_admin_bar, $pods;
-        $api = pods_api();
-        $all_pods = $api->load_pods();
-        $non_cpt_pods = array();
 
-        // Round up all the non-CPT pod types
+        if ( !is_user_logged_in() || !is_admin_bar_showing() )
+            return;
+
+        $all_pods = pods_api()->load_pods( array( 'type' => 'pod' ) );
+
+        // Add New item links for all pods
         foreach ( $all_pods as $pod ) {
-            if ( $pod[ 'type' ] == "pod" )
-                $non_cpt_pods[ ] = $pod;
-        }
+            if ( 0 == $pod[ 'options' ][ 'show_in_menu' ] )
+                continue;
 
-        // Add New item links for all non-CPT pods
-        foreach ( $non_cpt_pods as $pod ) {
-            $label = pods_var_raw( 'label', $pod, $pod[ 'name' ], null, true );
+            if ( !is_super_admin() && !current_user_can( 'pods' ) && !current_user_can( 'pods_add_' . $pod[ 'name' ] ) )
+                continue;
+
+            $singular_label = pods_var_raw( 'label_singular', $pod[ 'options' ], pods_var_raw( 'label', $pod, ucwords( str_replace( '_', ' ', $pod[ 'name' ] ) ), null, true ), null, true );
 
             $wp_admin_bar->add_node( array(
                 'id' => 'new-pod-' . $pod[ 'name' ],
-                'title' => $label,
+                'title' => $singular_label,
                 'parent' => 'new-content',
                 'href' => admin_url( 'admin.php?page=pods-manage-' . $pod[ 'name' ] . '&action=add' )
             ) );
         }
 
         // Add edit link if we're on a pods page
-        // @todo Fill in correct href and test this once PodsAPI is capable of adding new pod items to the database
-        if ( is_object( $pods ) && !is_wp_error( $pods ) && !empty( $pods->id ) ) {
-            $label = pods_var_raw( 'label', $pod, $pod[ 'name' ], null, true );
-            $label = pods_var_raw( 'label_singular', $pod[ 'options' ], $label, null, true );
+        if ( is_object( $pods ) && !is_wp_error( $pods ) && !empty( $pods->id ) && isset( $pods->pod_data ) && !empty( $pods->pod_data ) && 'pod' == $pods->pod_data[ 'type' ] ) {
+            $pod = $pods->pod_data;
 
-            $wp_admin_bar->add_node( array(
-                'title' => sprintf( __( 'Edit %s', 'pods' ), $label ),
-                'id' => 'edit-pod',
-                'href' => admin_url( 'admin.php?page=pods-manage-' . $pod[ 'name' ] . '&action=edit&id=' . $pod->id )
-            ) );
+            if ( is_super_admin() || current_user_can( 'pods' ) || current_user_can( 'pods_edit_' . $pod[ 'name' ] ) ) {
+                $singular_label = pods_var_raw( 'label_singular', $pod[ 'options' ], pods_var_raw( 'label', $pod, ucwords( str_replace( '_', ' ', $pod[ 'name' ] ) ), null, true ), null, true );
+
+                $wp_admin_bar->add_node( array(
+                    'title' => sprintf( __( 'Edit %s', 'pods' ), $singular_label ),
+                    'id' => 'edit-pod',
+                    'href' => admin_url( 'admin.php?page=pods-manage-' . $pod[ 'name' ] . '&action=edit&id=' . $pods->id() )
+                ) );
+            }
         }
 
     }
