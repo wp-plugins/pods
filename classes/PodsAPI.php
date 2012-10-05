@@ -1694,7 +1694,8 @@ class PodsAPI {
             }
         }
 
-        add_filter( 'wp_unique_post_slug', array( $this, '' ), 100, 6 );
+        if ( !has_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ) ) )
+            add_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ), 100, 6 );
 
         $params->id = $this->save_wp_object( 'post', $post_data, $field[ 'options' ], true, true );
 
