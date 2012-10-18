@@ -742,8 +742,16 @@ class PodsUI {
 
         $options->orderby = $orderby;
 
-        $options->validate( 'item', __( 'Item', 'pods' ) );
-        $options->validate( 'items', __( 'Items', 'pods' ) );
+        $item = __( 'Item', 'pods' );
+        $items = __( 'Items', 'pods' );
+
+        if ( is_object( $this->pod ) ) {
+            $item = pods_var_raw( 'label_singular', $this->pod->pod_data[ 'options' ], pods_var_raw( 'label', $this->pod->pod_data, $item, null, true ), null, true );
+            $items = pods_var_raw( 'label', $this->pod->pod_data, $items, null, true );
+        }
+
+        $options->validate( 'item', $item );
+        $options->validate( 'items', $items );
 
         $options->validate( 'heading', array(
             'manage' => __( 'Manage', 'pods' ),
@@ -755,12 +763,12 @@ class PodsUI {
         ), 'array_merge' );
 
         $options->validate( 'label', array(
-            'add' => __( 'Add New', 'pods' ) . " {$this->item}",
-            'edit' => __( 'Edit', 'pods' ) . " {$this->item}",
-            'duplicate' => __( 'Duplicate', 'pods' ) . " {$this->item}",
-            'delete' => __( 'Delete this', 'pods' ) . " {$this->item}",
-            'view' => __( 'View', 'pods' ) . " {$this->item}",
-            'reorder' => __( 'Reorder', 'pods' ) . " {$this->items}"
+            'add' => __( 'Save New', 'pods' ) . " {$options->item}",
+            'edit' => __( 'Save', 'pods' ) . " {$options->item}",
+            'duplicate' => __( 'Save New', 'pods' ) . " {$options->item}",
+            'delete' => __( 'Delete this', 'pods' ) . " {$options->item}",
+            'view' => __( 'View', 'pods' ) . " {$options->item}",
+            'reorder' => __( 'Reorder', 'pods' ) . " {$options->items}"
         ), 'array_merge' );
 
         $options->validate( 'fields', array(
@@ -1198,10 +1206,12 @@ class PodsUI {
      * @return mixed
      */
     public function edit ( $duplicate = false ) {
-        if ( !in_array( 'duplicate', $this->actions_disabled ) )
+        if ( in_array( 'duplicate', $this->actions_disabled ) )
             $duplicate = false;
+
         if ( empty( $this->row ) )
             $this->get_row();
+
         $this->do_hook( 'edit', $duplicate );
         if ( isset( $this->actions_custom[ 'edit' ] ) && is_callable( $this->actions_custom[ 'edit' ] ) )
             return call_user_func_array( $this->actions_custom[ 'edit' ], array( $duplicate, &$this ) );
@@ -1210,7 +1220,7 @@ class PodsUI {
         <div id="icon-edit-pages" class="icon32"<?php if ( false !== $this->icon ) { ?> style="background-position:0 0;background-image:url(<?php echo $this->icon; ?>);"<?php } ?>><br /></div>
         <h2>
             <?php
-            echo ( true === $duplicate ) ? $this->heading[ 'duplicate' ] : $this->heading[ 'edit' ] . ' ' . $this->item;
+            echo ( $duplicate ? $this->heading[ 'duplicate' ] : $this->heading[ 'edit' ] ) . ' ' . $this->item;
 
             if ( !in_array( 'add', $this->actions_disabled ) ) {
                 $link = pods_var_update( array( 'action' . $this->num => 'manage', 'id' . $this->num => '' ), array( 'page' ), $this->exclusion() );
@@ -1239,6 +1249,9 @@ class PodsUI {
      * @return bool|mixed
      */
     public function form ( $create = false, $duplicate = false ) {
+        if ( in_array( 'duplicate', $this->actions_disabled ) )
+            $duplicate = false;
+
         $this->do_hook( 'form' );
 
         if ( isset( $this->actions_custom[ 'form' ] ) && is_callable( $this->actions_custom[ 'form' ] ) )
@@ -1275,7 +1288,7 @@ class PodsUI {
             $alt_vars[ 'action' ] = 'manage';
             unset( $alt_vars[ 'id' ] );
 
-            if ( 1 == $duplicate ) {
+            if ( $duplicate ) {
                 $label = $this->label[ 'duplicate' ];
                 $id = null;
                 $vars = array(
@@ -1297,7 +1310,6 @@ class PodsUI {
         $obj =& $this;
         $singular_label = $this->item;
         $plural_label = $this->items;
-        $label = sprintf( __( 'Save %s', 'pods' ), $this->item );
 
         pods_view( PODS_DIR . 'ui/admin/form.php', compact( array_keys( get_defined_vars() ) ) );
     }
@@ -1895,7 +1907,7 @@ class PodsUI {
 
             .dragme {
                 background: url(<?php echo PODS_URL; ?>/ui/images/handle.gif) no-repeat;
-                background-position: 8px 5px;
+                background-position: 8px 8px;
                 cursor: pointer;
             }
 
@@ -2478,7 +2490,7 @@ class PodsUI {
             return call_user_func_array( $this->actions_custom[ 'limit' ], array( $options, &$this ) );
         if ( false === $options || !is_array( $options ) || empty( $options ) )
             $options = array( 10, 25, 50, 100, 200 );
-        if ( !in_array( $this->limit, $options ) )
+        if ( !in_array( $this->limit, $options ) && -1 != $this->limit )
             $this->limit = $options[ 1 ];
         foreach ( $options as $option ) {
             if ( $option == $this->limit )

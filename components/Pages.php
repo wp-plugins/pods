@@ -75,7 +75,7 @@ class Pods_Pages extends PodsComponent {
             add_filter( 'get_post_metadata', array( $this, 'get_meta' ), 10, 4 );
             add_filter( 'update_post_metadata', array( $this, 'save_meta' ), 10, 4 );
 
-            add_action( 'pods_meta_save_pre__pods_page', array( $this, 'fix_filters' ), 10, 5 );
+            add_action( 'pods_meta_save_pre_post__pods_page', array( $this, 'fix_filters' ), 10, 5 );
             add_action( 'pods_meta_save_post__pods_page', array( $this, 'clear_cache' ), 10, 5 );
             add_action( 'delete_post', array( $this, 'clear_cache' ), 10, 1 );
         }
@@ -420,6 +420,12 @@ class Pods_Pages extends PodsComponent {
     public function page_check () {
         global $pods;
 
+        // Fix any global confusion wherever this runs
+        if ( isset( $pods ) && !isset( $GLOBALS[ 'pods' ] ) )
+            $GLOBALS[ 'pods' ] =& $pods;
+        elseif ( !isset( $pods ) && isset( $GLOBALS[ 'pods' ] ) )
+            $pods =& $GLOBALS[ 'pods' ];
+
         if ( !defined( 'PODS_DISABLE_POD_PAGE_CHECK' ) || !PODS_DISABLE_POD_PAGE_CHECK ) {
             if ( null === self::$exists )
                 self::$exists = pod_page_exists();
@@ -450,6 +456,12 @@ class Pods_Pages extends PodsComponent {
      */
     public static function content ( $return = false ) {
         global $pods;
+
+        // Fix any global confusion wherever this runs
+        if ( isset( $pods ) && !isset( $GLOBALS[ 'pods' ] ) )
+            $GLOBALS[ 'pods' ] =& $pods;
+        elseif ( !isset( $pods ) && isset( $GLOBALS[ 'pods' ] ) )
+            $pods =& $GLOBALS[ 'pods' ];
 
         $content = false;
 
@@ -489,6 +501,12 @@ class Pods_Pages extends PodsComponent {
      */
     public function precode () {
         global $pods;
+
+        // Fix any global confusion wherever this runs
+        if ( isset( $pods ) && !isset( $GLOBALS[ 'pods' ] ) )
+            $GLOBALS[ 'pods' ] =& $pods;
+        elseif ( !isset( $pods ) && isset( $GLOBALS[ 'pods' ] ) )
+            $pods =& $GLOBALS[ 'pods' ];
 
         if ( false !== self::$exists ) {
             $content = false;

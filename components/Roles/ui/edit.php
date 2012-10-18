@@ -43,6 +43,7 @@
                                     <div id="minor-publishing">
                                         <div id="major-publishing-actions">
                                             <div id="publishing-action">
+                                                <img class="waiting" src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" alt="" />
                                                 <input type="submit" name="publish" id="publish" class="button-primary" value="<?php _e( 'Save', 'pods' ); ?>" accesskey="p" />
                                             </div>
                                             <!-- /#publishing-action -->
@@ -181,7 +182,7 @@
             e.preventDefault();
 
             var new_id = $( 'ul#custom-capabilities li' ).length;
-            var html = $( 'ul#custom-capabilities li.pods-repeater' ).html().replace( '--1', new_id );
+            var html = $( 'ul#custom-capabilities li.pods-repeater' ).html().replace( /\-\-1/g, new_id );
 
             $( 'ul#custom-capabilities' ).append( '<li id="capability-' + new_id + '">' + html + '</li>' );
             $( 'li#capability-' + new_id + ' input' ).focus();
