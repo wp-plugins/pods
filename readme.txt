@@ -4,7 +4,7 @@ Donate link: http://podsfoundation.org/donate/
 Tags: pods, custom post types, custom taxonomies, user fields, custom fields, cck, cms, content types, database, framework, drupal, post types
 Requires at least: 3.4
 Tested up to: 3.5
-Stable tag: 2.0.5
+Stable tag: 2.0.5.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,11 +96,14 @@ OR you can just install it with WordPress by going to Plugins >> Add New >> and 
 
 == Changelog ==
 
+= 2.0.5.1 - November 25th, 2012 =
+* Fixed: 'Edit' link wasn't appearing for Pod Pages / Templates / Helpers (you could click the title though)
+* Found a bug? Have a great feature idea? Get on GitHub and tell us about it and we'll get right on it: https://pods.io/submit/
+* Our GitHub also has a full list of issues closed for this release and all previous 2.x releases, you can even browse our code and contribute notes and patches all from the web at: http://pods.io/github/
+
 = 2.0.5 - November 24th, 2012 =
 * Another big set of stability fixes to improve performance and functionality
 * Added: Migrate Packages component - Our Package manager makes a return! You may remember it from Pods 1.x, but we've cleaned it up and improved the interface to make it easier to migrate your settings between sites or share them with others
-* Found a bug? Have a great feature idea? Get on GitHub and tell us about it and we'll get right on it: https://pods.io/submit/
-* Our GitHub also has a full list of issues closed for this release and all previous 2.x releases, you can even browse our code and contribute notes and patches all from the web at: http://pods.io/github/
 
 = 2.0.4.1 - October 17th, 2012 =
 * Updated: Pods UI duplicate method labels were confusing
