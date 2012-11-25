@@ -84,7 +84,7 @@ class PodsField_WYSIWYG extends PodsField {
                         'default' => 1,
                         'type' => 'boolean',
                         'help' => array(
-                            __( 'Transforms less-beautfiul text characters into stylized equivilents.', 'pods' ),
+                            __( 'Transforms less-beautfiul text characters into stylized equivalents.', 'pods' ),
                             'http://codex.wordpress.org/Function_Reference/wptexturize'
                         )
                     ),
@@ -277,6 +277,14 @@ class PodsField_WYSIWYG extends PodsField {
      * @return string
      */
     public function strip_html ( $value, $options = null ) {
+        if ( is_array( $value ) )
+            $value = @implode( ' ', $value );
+
+        $value = trim( $value );
+
+        if ( empty( $value ) )
+            return $value;
+
         $options = (array) $options;
 
         $allowed_html_tags = '';

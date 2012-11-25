@@ -62,7 +62,7 @@ class Pods_Roles extends PodsComponent {
             if ( $default_role == $key )
                 $roles[ $key ][ 'label' ] .= ' (site default)';
 
-            if ( 0 < $count && ( is_super_admin() || current_user_can( 'list_users' ) ) ) {
+            if ( 0 < $count && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'list_users' ) ) ) {
                 $roles[ $key ][ 'users' ] .= '<br /><a href="'
                                              . admin_url( esc_url( 'users.php?role=' . $key ) ) . '">'
                                              . __( 'View Users', 'pods' ) . '</a>';
@@ -105,13 +105,13 @@ class Pods_Roles extends PodsComponent {
         if ( isset( $roles[ pods_var( 'id', 'get', -1 ) ] ) )
             $ui[ 'row' ] = $roles[ pods_var( 'id', 'get', -1 ) ];
 
-        if ( !is_super_admin() && !current_user_can( 'pods_roles_add' ) )
+        if ( !is_super_admin() && !current_user_can( 'delete_users' ) && !current_user_can( 'pods_roles_add' ) )
             $ui[ 'actions_disabled' ][] = 'add';
 
-        if ( !is_super_admin() && !current_user_can( 'pods_roles_edit' ) )
+        if ( !is_super_admin() && !current_user_can( 'delete_users' ) && !current_user_can( 'pods_roles_edit' ) )
             $ui[ 'actions_disabled' ][] = 'edit';
 
-        if ( count( $roles ) < 2 || ( !is_super_admin() && !current_user_can( 'pods_roles_delete' ) ) )
+        if ( count( $roles ) < 2 || ( !is_super_admin() && !current_user_can( 'delete_users' ) && !current_user_can( 'pods_roles_delete' ) ) )
             $ui[ 'actions_disabled' ][] = 'delete';
 
         pods_ui( $ui );
@@ -206,7 +206,7 @@ class Pods_Roles extends PodsComponent {
             if ( $default_role == $key )
                 $roles[ $key ][ 'label' ] .= ' (site default)';
 
-            if ( 0 < $count && ( is_super_admin() || current_user_can( 'list_users' ) ) ) {
+            if ( 0 < $count && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'list_users' ) ) ) {
                 $roles[ $key ][ 'users' ] .= '<br /><a href="'
                                              . admin_url( esc_url( 'users.php?role=' . $key ) ) . '">'
                                              . __( 'View Users', 'pods' ) . '</a>';
@@ -242,14 +242,14 @@ class Pods_Roles extends PodsComponent {
         $capabilities = array();
 
         foreach ( $params->capabilities as $capability => $x ) {
-            if ( true !== (boolean) $x )
+            if ( empty( $capability ) || true !== (boolean) $x )
                 continue;
 
             $capabilities[ esc_attr( $capability ) ] = true;
         }
 
         foreach ( $params->custom_capabilities as $x => $capability ) {
-            if ( '--1' == $x )
+            if ( empty( $capability ) || '--1' == $x )
                 continue;
 
             $capabilities[ esc_attr( $capability ) ] = true;
@@ -296,7 +296,7 @@ class Pods_Roles extends PodsComponent {
         $new_capabilities = array();
 
         foreach ( $params->capabilities as $capability => $x ) {
-            if ( true !== (boolean) $x )
+            if ( empty( $capability ) || true !== (boolean) $x )
                 continue;
 
             $new_capabilities[] = esc_attr( $capability );
@@ -306,10 +306,10 @@ class Pods_Roles extends PodsComponent {
         }
 
         foreach ( $params->custom_capabilities as $x => $capability ) {
-            if ( '--1' == $x )
+            if ( empty( $capability ) )
                 continue;
 
-            if ( !in_array( $capability, $new_capabilities ) )
+            if ( in_array( $capability, $new_capabilities ) )
                 continue;
 
             $new_capabilities[] = esc_attr( $capability );

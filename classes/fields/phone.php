@@ -157,6 +157,8 @@ class PodsField_Phone extends PodsField {
     public function validate ( &$value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
         $errors = array();
 
+        $label = strip_tags( pods_var_raw( 'label', $options, ucwords( str_replace( '_', ' ', $name ) ) ) );
+
         $check = $this->pre_save( $value, $id, $name, $options, $fields, $pod, $params );
 
         if ( is_array( $check ) )
@@ -164,9 +166,9 @@ class PodsField_Phone extends PodsField {
         else {
             if ( 0 < strlen( $value ) && strlen( $check ) < 1 ) {
                 if ( 1 == pods_var( 'required', $options ) )
-                    $errors[] = __( 'This field is required.', 'pods' );
+                    $errors[] = sprintf( __( 'The %s field is required.', 'pods' ), $label );
                 else
-                    $errors[] = __( 'Invalid phone number provided.', 'pods' );
+                    $errors[] = sprintf( __( 'Invalid phone number provided for the field %s.', 'pods' ), $label );
             }
         }
 
@@ -197,7 +199,7 @@ class PodsField_Phone extends PodsField {
         }
         else {
             // Clean input
-            $number = preg_replace( '/([^0-9ext])/', ' ', $value );
+            $number = preg_replace( '/([^0-9ext])/', '', $value );
 
             $number = str_replace(
                 array( '-', '.', 'ext', 'x', 't', 'e', '(', ')' ),
@@ -208,8 +210,8 @@ class PodsField_Phone extends PodsField {
             // Get extension
             $extension = explode( '|', $number );
             if ( 1 < count( $extension ) ) {
-                $number = preg_replace( '/([^0-9])/', ' ', $extension[ 0 ] );
-                $extension = preg_replace( '/([^0-9])/', ' ', $extension[ 1 ] );
+                $number = preg_replace( '/([^0-9])/', '', $extension[ 0 ] );
+                $extension = preg_replace( '/([^0-9])/', '', $extension[ 1 ] );
             }
             else
                 $extension = '';
@@ -237,7 +239,7 @@ class PodsField_Phone extends PodsField {
                 $value = implode( '-', $numbers );
 
             // Add extension
-            if ( 1 == pods_var( 'phone_enable_phone_extension', $options ) && false !== $extension )
+            if ( 1 == pods_var( 'phone_enable_phone_extension', $options ) && 0 < strlen( $extension ) )
                 $value .= ' x' . $extension;
         }
 
