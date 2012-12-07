@@ -2,7 +2,7 @@
 /**
  * @package Pods\Fields
  */
-class PodsField_File extends PodsField {
+class PodsField_Avatar extends PodsField {
 
     /**
      * Field Type Group
@@ -18,7 +18,7 @@ class PodsField_File extends PodsField {
      * @var string
      * @since 2.0.0
      */
-    public static $type = 'file';
+    public static $type = 'avatar';
 
     /**
      * Field Type Label
@@ -26,7 +26,15 @@ class PodsField_File extends PodsField {
      * @var string
      * @since 2.0.0
      */
-    public static $label = 'File / Image / Video';
+    public static $label = 'Avatar';
+
+    /**
+     * Pod Types supported on (true for all, false for none, or give array of specific types supported)
+     *
+     * @var array|bool
+     * @since 2.1
+     */
+    public static $pod_types = array( 'user' );
 
     /**
      * Do things like register/enqueue scripts and stylesheets
@@ -34,7 +42,7 @@ class PodsField_File extends PodsField {
      * @since 2.0.0
      */
     public function __construct () {
-
+        add_filter( 'get_avatar', array( $this, 'get_avatar' ), 10, 5 );
     }
 
     /**
@@ -54,22 +62,12 @@ class PodsField_File extends PodsField {
         }
 
         $options = array(
-            'file_format_type' => array(
-                'label' => __( 'File Type', 'pods' ),
-                'default' => 'single',
-                'type' => 'pick',
-                'data' => array(
-                    'single' => __( 'Single Select', 'pods' ),
-                    'multi' => __( 'Multiple Select', 'pods' )
-                ),
-                'dependency' => true
-            ),
-            'file_uploader' => array(
-                'label' => __( 'File Uploader', 'pods' ),
+            'avatar_uploader' => array(
+                'label' => __( 'Avatar Uploader', 'pods' ),
                 'default' => 'attachment',
                 'type' => 'pick',
                 'data' => apply_filters(
-                    'pods_form_ui_field_file_uploader_options',
+                    'pods_form_ui_field_avatar_uploader_options',
                     array(
                         'attachment' => __( 'Attachments (WP Media Library)', 'pods' ),
                         'plupload' => __( 'Plupload', 'pods' )
@@ -77,9 +75,9 @@ class PodsField_File extends PodsField {
                 ),
                 'dependency' => true
             ),
-            'file_attachment_tab' => array(
+            'avatar_attachment_tab' => array(
                 'label' => __( 'Attachments Default Tab', 'pods' ),
-                'depends-on' => array( 'file_uploader' => 'attachment' ),
+                'depends-on' => array( 'avatar_uploader' => 'attachment' ),
                 'default' => 'type',
                 'type' => 'pick',
                 'data' => array(
@@ -87,60 +85,12 @@ class PodsField_File extends PodsField {
                     'library' => __( 'Media Library', 'pods' )
                 )
             ),
-            'file_edit_title' => array(
-                'label' => __( 'Editable Title', 'pods' ),
-                'default' => 1,
-                'type' => 'boolean'
-            ),
-            'file_limit' => array(
-                'label' => __( 'File Limit', 'pods' ),
-                'depends-on' => array( 'file_format_type' => 'multi' ),
-                'default' => 0,
-                'type' => 'number'
-            ),
-            'file_restrict_filesize' => array(
+            'avatar_restrict_filesize' => array(
                 'label' => __( 'Restrict File Size', 'pods' ),
-                'excludes-on' => array( 'file_uploader' => 'attachment' ),
+                'excludes-on' => array( 'avatar_uploader' => 'attachment' ),
                 'default' => '10MB',
                 'type' => 'text'
-            ),
-            'file_type' => array(
-                'label' => __( 'Restrict File Types', 'pods' ),
-                'excludes-on' => array( 'file_uploader' => 'attachment' ),
-                'default' => 'images',
-                'type' => 'pick',
-                'data' => apply_filters(
-                    'pods_form_ui_field_file_type_options',
-                    array(
-                        'images' => __( 'Images (jpg, png, gif)', 'pods' ),
-                        'video' => __( 'Video (mpg, mov, flv, mp4)', 'pods' ),
-                        'any' => __( 'Any Type (no restriction)', 'pods' ),
-                        'other' => __( 'Other (customize allowed extensions)', 'pods' )
-                    )
-                ),
-                'dependency' => true
-            ),
-            'file_allowed_extensions' => array(
-                'label' => __( 'Allowed File Extensions', 'pods' ),
-                'description' => __( 'Separate file extensions with a comma (ex. jpg,png,mp4,mov)', 'pods' ),
-                'depends-on' => array( 'file_type' => 'other' ),
-                'excludes-on' => array( 'file_uploader' => 'attachment' ),
-                'default' => '',
-                'type' => 'text'
-            )/*,
-            'file_image_size' => array(
-                'label' => __( 'Excluded Image Sizes', 'pods' ),
-                'description' => __( 'Image sizes not to generate when processing the image', 'pods' ),
-                'depends-on' => array( 'file_type' => 'images' ),
-                'default' => 'images',
-                'type' => 'pick',
-                'pick_format_type' => 'multi',
-                'pick_format_multi' => 'checkbox',
-                'data' => apply_filters(
-                    'pods_form_ui_field_file_image_size_options',
-                    $image_sizes
-                )
-            )*/
+            )
         );
         return $options;
     }
@@ -209,17 +159,14 @@ class PodsField_File extends PodsField {
             return;
         }
 
-        // Use plupload if attachment isn't available
-        if ( 'attachment' == pods_var( 'file_uploader', $options ) && ( !is_user_logged_in() || ( !current_user_can( 'upload_files' ) && !current_user_can( 'edit_files' ) ) ) )
+        if ( 'plupload' == pods_var( 'avatar_uploader', $options ) )
             $field_type = 'plupload';
-        elseif ( 'plupload' == pods_var( 'file_uploader', $options ) )
-            $field_type = 'plupload';
-        elseif ( 'attachment' == pods_var( 'file_uploader', $options ) )
+        elseif ( 'attachment' == pods_var( 'avatar_uploader', $options ) )
             $field_type = 'attachment';
         else {
             // Support custom File Uploader integration
-            do_action( 'pods_form_ui_field_file_uploader_' . pods_var( 'file_uploader', $options ), $name, $value, $options, $pod, $id );
-            do_action( 'pods_form_ui_field_file_uploader', pods_var( 'file_uploader', $options ), $name, $value, $options, $pod, $id );
+            do_action( 'pods_form_ui_field_avatar_uploader_' . pods_var( 'avatar_uploader', $options ), $name, $value, $options, $pod, $id );
+            do_action( 'pods_form_ui_field_avatar_uploader', pods_var( 'avatar_uploader', $options ), $name, $value, $options, $pod, $id );
             return;
         }
 
@@ -352,57 +299,63 @@ class PodsField_File extends PodsField {
     }
 
     /**
-     * Handle file row output for uploaders
+     * Take over the avatar served from WordPress
      *
-     * @param array $attributes
-     * @param int $limit
-     * @param bool $editable
-     * @param int $id
-     * @param string $icon
-     * @param string $name
-     *
-     * @return string
-     * @since 2.0.0
+     * @param string $avatar Default Avatar Image output from WordPress
+     * @param int|string|object $id_or_email A user ID,  email address, or comment object
+     * @param int $size Size of the avatar image
+     * @param string $default URL to a default image to use if no avatar is available
+     * @param string $alt Alternate text to use in image tag. Defaults to blank
+     * @return string <img> tag for the user's avatar
      */
-    public function markup ( $attributes, $limit = 1, $editable = true, $id = null, $icon = null, $name = null ) {
-        ob_start();
+    public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt ) {
+        $_user_ID = 0;
 
-        if ( empty ( $id ) )
-            $id = '{{id}}';
+        if ( is_numeric( $id_or_email ) && 0 < $id_or_email )
+            $_user_ID = (int) $id_or_email;
+        elseif ( is_object( $id_or_email ) && isset( $id_or_email->user_id ) && 0 < $id_or_email->user_id )
+            $_user_ID = (int) $id_or_email->user_id;
+        elseif ( is_object( $id_or_email ) && isset( $id_or_email->ID ) && isset( $id_or_email->user_login ) && 0 < $id_or_email->ID )
+            $_user_ID = (int) $id_or_email->ID;
 
-        if ( empty ( $icon ) )
-            $icon = '{{icon}}';
+        if ( 0 < $_user_ID && !empty( PodsMeta::$user ) ) {
+            $avatar_field = pods_transient_get( 'pods_avatar_field' );
 
-        if ( empty( $name ) )
-            $name = '{{name}}';
+            $user = current( PodsMeta::$user );
 
-        $editable = (boolean) $editable;
-        ?>
-    <li class="pods-file hidden" id="pods-file-{{id}}">
-        <?php echo PodsForm::field( $attributes[ 'name' ] . '[' . $id . '][id]', $id, 'hidden' ); ?>
+            if ( empty( $avatar_field ) ) {
+                foreach ( $user[ 'fields' ] as $field ) {
+                    if ( 'avatar' == $field[ 'type' ] ) {
+                        $avatar_field = $field[ 'name' ];
 
-        <ul class="pods-file-meta media-item">
-            <?php if ( 1 != $limit ) { ?>
-                <li class="pods-file-col pods-file-handle">Handle</li>
-            <?php } ?>
+                        pods_transient_set( 'pods_avatar_field', $avatar_field );
 
-            <li class="pods-file-col pods-file-icon">
-                <img class="pinkynail" src="<?php echo $icon; ?>" alt="Icon" />
-            </li>
+                        break;
+                    }
+                }
+            }
+            elseif ( !isset( $user[ 'fields' ][ $avatar_field ] ) )
+                $avatar_field = false;
 
-            <li class="pods-file-col pods-file-name">
-                <?php
-                if ( $editable )
-                    echo PodsForm::field( $attributes[ 'name' ] . '[' . $id . '][title]', $name, 'text' );
-                else
-                    echo ( empty( $name ) ? '{{name}}' : $name );
-                ?>
-            </li>
+            if ( !empty( $avatar_field ) ) {
+                $user_avatar = get_user_meta( $_user_ID, $avatar_field, true );
 
-            <li class="pods-file-col pods-file-delete">Delete</li>
-        </ul>
-    </li>
-    <?php
-        return ob_get_clean();
+                if ( !empty( $user_avatar ) ) {
+                    $attributes = array(
+                        'alt' => ''
+                    );
+
+                    if ( !empty( $alt ) )
+                        $attributes[ 'alt' ] = $alt;
+
+                    $user_avatar = pods_image( $user_avatar, array( $size, $size ), 0, $attributes );
+
+                    if ( !empty( $user_avatar ) )
+                        $avatar = $user_avatar;
+                }
+            }
+        }
+
+        return $avatar;
     }
 }

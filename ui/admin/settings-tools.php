@@ -7,14 +7,14 @@
         }
     }
     elseif ( 1 == pods_var( 'pods_clearcache' ) )
-        pods_ui_message( 'Pods 2.0 transients and cache have been cleared.' );
+        pods_ui_message( 'Pods transients and cache have been cleared.' );
 
     if ( PODS_GITHUB_UPDATE ) {
 ?>
 
 <h3><?php _e( 'Force an update of this beta from GitHub', 'pods' ); ?></h3>
 
-<p><?php _e( 'This tool lets you update your Pods 2.0 beta installation to the latest, usually only when you\'ve been instructed to do so.', 'pods' ); ?></p>
+<p><?php _e( 'This tool lets you update your Pods installation to the latest alpha/beta/release candidate, usually only when you\'ve been instructed to do so.', 'pods' ); ?></p>
 
 <?php
     $update = admin_url( 'update-core.php?pods_force_refresh=1' );
@@ -31,12 +31,12 @@
 
 <?php } ?>
 
-<h3><?php _e( 'Clear Pods 2.0 Cache', 'pods' ); ?></h3>
+<h3><?php _e( 'Clear Pods Cache', 'pods' ); ?></h3>
 
-<p><?php _e( 'This tool will clear all of the transients/cache that are used by Pods 2.0. ', 'pods' ); ?></p>
+<p><?php _e( 'This tool will clear all of the transients/cache that are used by Pods. ', 'pods' ); ?></p>
 
 <p class="submit">
-    <input type="submit" class="button button-primary" name="clearcache" value="<?php esc_attr_e( 'Clear Pods 2.0 Cache', 'pods' ); ?>" />
+    <input type="submit" class="button button-primary" name="clearcache" value="<?php esc_attr_e( 'Clear Pods Cache', 'pods' ); ?>" />
 </p>
 
 <hr />
@@ -64,6 +64,17 @@
         'MySQL Version' => $mysql,
         'Server Software' => $_SERVER[ 'SERVER_SOFTWARE' ],
         'Your User Agent' => $_SERVER[ 'HTTP_USER_AGENT' ],
+        'Session Save Path' => session_save_path(),
+        'Session Save Path Exists' => ( file_exists( session_save_path() ) ? 'Yes' : 'No' ),
+        'Session Save Path Writeable' => ( is_writable( session_save_path() ) ? 'Yes' : 'No' ),
+        'Session Max Lifetime' => ini_get( 'session.gc_maxlifetime' ),
+        'WPDB Prefix' => $wpdb->prefix,
+        'WP Multisite Mode' => ( is_multisite() ? 'Yes' : 'No' ),
+        'WP Memory Limit' => WP_MEMORY_LIMIT,
+        'Pods Network-Wide Activated' => ( is_plugin_active_for_network( basename( PODS_DIR ) . '/init.php' ) ? 'Yes' : 'No' ),
+        'Pods Install Location' => PODS_DIR,
+        'Pods Tableless Mode Activated' => ( ( defined( 'PODS_TABLELESS' ) && PODS_TABLELESS ) ? 'Yes' : 'No' ),
+        'Pods Light Mode Activated' => ( ( defined( 'PODS_LIGHT' ) && PODS_LIGHT ) ? 'Yes' : 'No' ),
         'Currently Active Plugins' => $plugins
     );
 

@@ -1,16 +1,38 @@
 <?php
 global $pods_i;
 
-$tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
-
 $api = pods_api();
+
+$_pods = $api->load_pods();
+
+$pod = $_pods[ $obj->id ];
+
+$tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
 $field_types = $api->get_field_types();
 
 $field_types_select = array();
 
 foreach ( $field_types as $type => $label ) {
+    /**
+     * @var $field_type PodsField
+     */
     $field_type = PodsForm::field_loader( $type );
+
+    $field_type_vars = get_class_vars( get_class( $field_type ) );
+
+    if ( !isset( $field_type_vars[ 'pod_types' ] ) )
+        $field_type_vars[ 'pod_types' ] = true;
+
+    // Only show supported field types
+    if ( true !== $field_type_vars[ 'pod_types' ] ) {
+        if ( empty( $field_type_vars[ 'pod_types' ] ) )
+            continue;
+        elseif ( is_array( $field_type_vars[ 'pod_types' ] ) && !in_array( pods_var( 'type', $pod ), $field_type_vars[ 'pod_types' ] ) )
+            continue;
+        elseif ( !is_array( $field_type_vars[ 'pod_types' ] ) && pods_var( 'type', $pod ) != $field_type_vars[ 'pod_types' ] )
+            continue;
+    }
 
     if ( !empty( PodsForm::$field_group ) ) {
         if ( !isset( $field_types_select[ PodsForm::$field_group ] ) )
@@ -157,14 +179,14 @@ $pick_object = array(
     'Taxonomies' => array(),
     'Other WP Objects' => array(
         'user' => 'Users',
-        'comment' => 'Comments'
+        'comment' => 'Comments',
+        'nav_menu' => 'Navigation Menus',
+        'post_format' => 'Post Formats'
     )
 );
 
-$_pods = $api->load_pods();
-
-foreach ( $_pods as $pod ) {
-    $pick_object[ 'Pods' ][ 'pod-' . $pod[ 'name' ] ] = $pod[ 'label' ] . ' (' . $pod[ 'name' ] . ')';
+foreach ( $_pods as $the_pod ) {
+    $pick_object[ 'Pods' ][ 'pod-' . $the_pod[ 'name' ] ] = $the_pod[ 'label' ] . ' (' . $the_pod[ 'name' ] . ')';
 }
 
 $post_types = get_post_types();
@@ -181,7 +203,7 @@ foreach ( $post_types as $post_type => $label ) {
 }
 
 $taxonomies = get_taxonomies();
-$ignore = array( 'nav_menu', 'link_category', 'post_format' );
+$ignore = array( 'nav_menu', 'post_format' );
 
 foreach ( $taxonomies as $taxonomy => $label ) {
     if ( in_array( $taxonomy, $ignore ) || empty( $taxonomy ) )
@@ -190,8 +212,6 @@ foreach ( $taxonomies as $taxonomy => $label ) {
     $taxonomy = get_taxonomy( $taxonomy );
     $pick_object[ 'Taxonomies' ][ 'taxonomy-' . $taxonomy->name ] = $taxonomy->label;
 }
-
-$pod = $_pods[ $obj->id ];
 
 foreach ( $pod[ 'options' ] as $_option => $_value ) {
     $pod[ $_option ] = $_value;
@@ -206,15 +226,6 @@ foreach ( $pod[ 'fields' ] as $_field => $_data ) {
 }
 
 $field_defaults = apply_filters( 'pods_field_defaults', apply_filters( 'pods_field_defaults_' . $pod[ 'name' ], $field_defaults, $pod ) );
-
-// WP objects already have slugs
-if ( !in_array( $pod[ 'type' ], array( 'pod', 'table' ) ) ) {
-    if ( isset( $field_types[ 'slug' ] ) )
-        unset( $field_types[ 'slug' ] );
-
-    if ( isset( $field_types_select[ __( 'Other', 'pods' ) ][ 'slug' ] ) )
-        unset( $field_types_select[ __( 'Other', 'pods' ) ][ 'slug' ] );
-}
 
 $field_settings = array(
     'field_types' => $field_types,
@@ -365,12 +376,14 @@ if ( 'none' != pods_var( 'storage', $pod, 'none', null, true ) ) {
 else
     $closed = ' pods-toggled-only';
 
-$advanced = true;
+$advanced = false;
 
-if ( 'post_type' == pods_var( 'type', $pod ) && 0 < strlen( pods_var( 'object', $pod ) ) )
-    $advanced = false;
-elseif ( 'taxonomy' == pods_var( 'type', $pod ) && 0 < strlen( pods_var( 'object', $pod ) ) )
-    $advanced = false;
+if ( 'post_type' == pods_var( 'type', $pod ) && strlen( pods_var( 'object', $pod ) < 1 ) )
+    $advanced = true;
+elseif ( 'taxonomy' == pods_var( 'type', $pod ) && strlen( pods_var( 'object', $pod ) ) < 1 )
+    $advanced = true;
+elseif ( 'pod' == pods_var( 'type', $pod ) )
+    $advanced = true;
 
 if ( $advanced ) {
 ?>
@@ -555,7 +568,7 @@ $advanced_options = array(
             'label' => __( 'Menu Position', 'pods' ),
             'help' => __( 'help', 'pods' ),
             'type' => 'number',
-            'default' => '',
+            'default' => 20,
             'depends-on' => array( 'show_in_menu' => true )
         ),
         'menu_icon' => array(
@@ -858,6 +871,14 @@ elseif ( 'taxonomy' == pods_var( 'type', $pod ) && strlen( pods_var( 'object', $
         <?php echo PodsForm::label( 'query_var', __( 'Query Var', 'pods' ), __( 'help', 'pods' ) ); ?>
         <?php echo PodsForm::field( 'query_var', pods_var_raw( 'query_var', $pod ), 'boolean', array( 'boolean_yes_label' => '' ) ); ?>
     </div>
+    <div class="pods-field-option">
+        <?php echo PodsForm::label( 'sort', __( 'Remember order saved on Post Types', 'pods' ), __( 'help', 'pods' ) ); ?>
+        <?php echo PodsForm::field( 'sort', pods_var_raw( 'sort', $pod ), 'boolean', array( 'boolean_yes_label' => '' ) ); ?>
+    </div>
+    <div class="pods-field-option">
+        <?php echo PodsForm::label( 'update_count_callback', __( 'Function to call when updating counts', 'pods' ), __( 'help', 'pods' ) ); ?>
+        <?php echo PodsForm::field( 'update_count_callback', pods_var_raw( 'update_count_callback', $pod ), 'boolean', array( 'boolean_yes_label' => '' ) ); ?>
+    </div>
     <div class="pods-field-option-group">
         <p class="pods-field-option-group-label">
             <?php _e( 'Associated Post Types', 'pods' ); ?>
@@ -1087,7 +1108,14 @@ elseif ( 'pod' == pods_var( 'type', $pod ) ) {
         document.location = thank_you.replace( 'X_ID_X', id );
     }
 
+    var pods_sister_field_going = false;
+
     var pods_sister_field = function ( $el ) {
+        if ( pods_sister_field_going )
+            return;
+
+        pods_sister_field_going = true;
+
         var id = $el.closest( 'tr.pods-manage-row' ).data( 'row' );
 
         var default_select = '<?php echo addslashes( str_replace( array( "\n", "\r" ), ' ', PodsForm::field( 'field_data[--1][sister_id]', '', 'pick', array( 'data' => pods_var_raw( 'sister_id', $field_settings ) ) ) ) ); ?>';
@@ -1134,15 +1162,21 @@ elseif ( 'pod' == pods_var( 'type', $pod ) ) {
                     $el.find( '.pods-sister-field' ).html( select_container );
 
                     jQuery( '#pods-form-ui-field-data-' + id + '-sister-id' ).val( selected_value );
+
+                    pods_sister_field_going = false;
                 }
                 else {
                     // None found
                     $el.find( '.pods-sister-field' ).html( default_select );
+
+                    pods_sister_field_going = false;
                 }
             },
             error : function () {
                 // None found
                 $el.find( '.pods-sister-field' ).html( default_select );
+
+                pods_sister_field_going = false;
             }
         } );
     }

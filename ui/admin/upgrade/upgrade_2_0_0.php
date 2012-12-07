@@ -11,7 +11,7 @@ global $wpdb;
 
     <img src="<?php echo PODS_URL; ?>ui/images/pods-logo-notext-rgb-transparent.png" class="pods-leaf-watermark-right" />
 
-    <div id="pods-wizard-box" class="pods-wizard-steps-3" data-action="pods_admin" data-method="upgrade" data-_wpnonce="<?php echo wp_create_nonce( 'pods-upgrade' ); ?>">
+    <div id="pods-wizard-box" class="pods-wizard-steps-3" data-action="pods_admin" data-method="upgrade" data-_wpnonce="<?php echo wp_create_nonce( 'pods-upgrade' ); ?>" data-version="<?php echo $new_version; ?>">
         <div id="pods-wizard-heading">
             <ul>
                 <li class="pods-wizard-menu-current" data-step="1">
@@ -35,35 +35,15 @@ global $wpdb;
                 <div class="pods-wizard-content pods-wizard-grey">
                     <p>
                         <?php
-                        $intro = __( 'Welcome to #Pods2! We sincerely hope you enjoy over two years worth of planning and work, available to you for <em>free</em>. Due to a number of optimizations in #Pods2, we need to run a few updates to your database. This should not remove or change your existing Pod data from 1.x, so if you wish to rollback to Pods 1.x - you can easily do that.', 'pods' );
-                        echo str_replace( '#Pods2', '<a href="https://twitter.com/#!/search/%23pods2" target="_blank">#Pods2</a>', $intro );
+                            $intro = __( 'Welcome to #Pods2! We sincerely hope you enjoy over two years worth of planning and work, available to you for <em>free</em>.', 'pods' )
+                                . ' ' . __( 'Due to a number of optimizations in #Pods2, we need to run a few updates to your database. This should not remove or change your existing Pod data from 1.x, so if you wish to rollback to Pods 1.x - you can easily do that.', 'pods' );
+
+                            echo str_replace( '#Pods2', '<a href="https://twitter.com/#!/search/%23pods2" target="_blank">#Pods2</a>', $intro );
                         ?>
                     </p>
                 </div>
-                <p class="padded"><?php _e( 'We recommend that you back your database up, it can really save you in a bind or a really weird situation that you may not be expecting. Check out a few options we think are <em>great</em> below.', 'pods' ); ?></p>
 
-                <div id="pods-wizard-options">
-                    <div class="pods-wizard-option">
-                        <a href="http://ithemes.com/member/go.php?r=31250&i=l44" target="_blank"> <img src="<?php echo PODS_URL; ?>ui/images/logo_backupbuddy.png" alt="Backup Buddy" />
-
-                            <p><?php _e( 'Receive 25% off', 'pods' ); ?></p>
-
-                            <p><?php _e( 'Coupon Code', 'pods' ); ?>: <strong>PODS25</strong></p>
-                        </a>
-
-                        <p><em><?php _e( 'The all-in-one WordPress backup plugin to easily backup, restore, and migrate to any number of local or external locations.', 'pods' ); ?></em></p>
-                    </div>
-                    <div class="pods-wizard-option">
-                        <a href="http://vaultpress.com/podsframework/" target="_blank"> <img src="<?php echo PODS_URL; ?>ui/images/logo_vaultpress.png" alt="Vaultpress" />
-
-                            <p><?php _e( '1 free month', 'pods' ); ?></p>
-
-                            <p><strong><?php _e( 'Click to sign up', 'pods' ); ?></strong></p>
-                        </a>
-
-                        <p><em><?php _e( 'A service that provides realtime continuous backups, restores, and security scanning.', 'pods' ); ?></em></p>
-                    </div>
-                </div>
+                <?php include_once PODS_DIR . 'ui/admin/upgrade/backup.php'; ?>
             </div>
             <!-- // Getting Started Panel -->
 
@@ -180,7 +160,7 @@ global $wpdb;
             <!-- Migrate Panel -->
             <div id="pods-wizard-panel-3" class="pods-wizard-panel">
                 <div class="pods-wizard-content">
-                    <p><?php _e( 'During this process your Pods, Settings, and Content will be migrated into the optimized Pods 2.0 architecture. We will not delete any of your old data, the tables will remain until you choose to clean them up after a successful upgrade.', 'pods' ); ?></p>
+                    <p><?php _e( 'During this process your Pods, Settings, and Content will be migrated into the optimized Pods 2.x architecture. We will not delete any of your old data, the tables will remain until you choose to clean them up after a successful upgrade.', 'pods' ); ?></p>
                 </div>
                 <table cellpadding="0" cellspacing="0">
                     <col style="width: 70px">

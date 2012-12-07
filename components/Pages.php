@@ -37,6 +37,15 @@ class Pods_Pages extends PodsComponent {
     private $object_type = '_pods_page';
 
     /**
+     * Whether the page has been checked already
+     *
+     * @var bool
+     *
+     * @since 2.1.0
+     */
+    static $checked = false;
+
+    /**
      * Do things like register/enqueue scripts and stylesheets
      *
      * @since 2.0.0
@@ -166,9 +175,6 @@ class Pods_Pages extends PodsComponent {
         if ( $this->object_type != $current_screen->post_type )
             return $actions;
 
-        if ( isset( $actions[ 'edit' ] ) )
-            unset( $actions[ 'edit' ] );
-
         if ( isset( $actions[ 'view' ] ) )
             unset( $actions[ 'view' ] );
 
@@ -269,6 +275,9 @@ class Pods_Pages extends PodsComponent {
 
         if ( !in_array( 'page.php', $page_templates ) && locate_template( array( 'page.php', false ) ) )
             $page_templates[ 'Page (WP Default)' ] = 'page.php';
+
+        if ( !in_array( 'index.php', $page_templates ) && locate_template( array( 'index.php', false ) ) )
+            $page_templates[ 'Index (WP Fallback)' ] = 'index.php';
 
         ksort( $page_templates );
 
@@ -506,6 +515,9 @@ class Pods_Pages extends PodsComponent {
      * Check if a Pod Page exists
      */
     public function page_check () {
+        if ( self::$checked )
+            return;
+
         global $pods;
 
         // Fix any global confusion wherever this runs
@@ -532,6 +544,8 @@ class Pods_Pages extends PodsComponent {
                     add_action( 'wp', array( $this, 'silence_404' ) );
                 }
             }
+
+            self::$checked = true;
         }
     }
 
