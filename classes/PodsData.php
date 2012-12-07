@@ -21,6 +21,11 @@ class PodsData {
     public static $display_errors = true;
 
     /**
+     * @var PodsAPI
+     */
+    public $api = null;
+
+    /**
      * @var null
      */
     public $select = null;
@@ -125,6 +130,11 @@ class PodsData {
      * @var
      */
     public $total_found;
+
+    /**
+     * @var bool
+     */
+    public $total_found_calculated;
 
     // pagination
     /**
@@ -502,11 +512,6 @@ class PodsData {
      * @since 2.0.0
      */
     public function select ( $params ) {
-        /**
-         * @var $wpdb wpdb
-         */
-        global $wpdb;
-
         $cache_key = $results = false;
 
         // Debug purposes
@@ -559,23 +564,31 @@ class PodsData {
 
             $this->fields = PodsForm::fields_setup( $this->fields );
         }
+        $this->total_found_calculated = false;
+
+        $this->total = count( (array) $this->data );
+
+        return $this->data;
+    }
+
+    public function calculate_totals () {
+        /**
+         * @var $wpdb wpdb
+         */
+        global $wpdb;
 
         // Set totals
-        if(false !== $this->total_sql)
+        if ( false !== $this->total_sql )
             $total = @current( $wpdb->get_col( $this->get_sql( $this->total_sql ) ) );
         else
             $total = @current( $wpdb->get_col( "SELECT FOUND_ROWS()" ) );
 
         $total = $this->do_hook( 'select_total', $total );
-
         $this->total_found = 0;
+        $this->total_found_calculated = true;
 
         if ( is_numeric( $total ) )
             $this->total_found = $total;
-
-        $this->total = count( (array) $this->data );
-
-        return $this->data;
     }
 
     /**
@@ -586,7 +599,7 @@ class PodsData {
      * @return bool|mixed|string
      * @since 2.0.0
      */
-    public function build ( &$params ) {
+    public function build ( $params ) {
         $defaults = array(
             'select' => '*',
             'distinct' => true,
@@ -794,7 +807,7 @@ class PodsData {
                                 $fieldfield = $fieldfield . '.`' . $attributes[ 'table_info' ][ 'field_index' ] . '`';
                             }
                         }
-                        elseif ( 'file' == $attributes[ 'type' ] ) {
+                        elseif ( in_array( $attributes[ 'type' ], apply_filters( 'pods_file_field_types', array( 'file', 'avatar' ) ) ) ) {
                             if ( false === $params->search_across_files )
                                 continue;
                             else
@@ -860,7 +873,7 @@ class PodsData {
 
                     $filterfield = $filterfield . '.`' . $attributes[ 'table_info' ][ 'field_index' ] . '`';
                 }
-                elseif ( 'file' == $attributes[ 'type' ] )
+                elseif ( in_array( $attributes[ 'type' ], apply_filters( 'pods_file_field_types', array( 'file', 'avatar' ) ) ) )
                     $filterfield = $filterfield . '.`post_title`';
                 else
                     $filterfield = '`t`.' . $filterfield;
@@ -880,7 +893,7 @@ class PodsData {
 
                         if ( isset( $attributes[ 'group_related' ] ) && false !== $attributes[ 'group_related' ] ) {
                             $having[] = "( {$filterfield} = '" . $filter_value . "'"
-                                        . " OR {$filterfield} LIKE '%\"" . $filter_value . "\"%' )";
+                                         . " OR {$filterfield} LIKE '%\"" . $filter_value . "\"%' )";
                         }
                         else {
                             $where[] = "( {$filterfield} = '" . $filter_value . "'"
@@ -1038,9 +1051,9 @@ class PodsData {
                 $params->orderby = preg_replace( $find, $replace, $params->orderby );
 
                 if ( !empty( $found ) )
-                    $joins = $this->traverse( $found, $params->fields );
+                    $joins = $this->traverse( $found, $params->fields, $params );
                 elseif ( false !== $params->search )
-                    $joins = $this->traverse( null, $params->fields );
+                    $joins = $this->traverse( null, $params->fields, $params );
             }
         }
 
@@ -1073,12 +1086,12 @@ class PodsData {
             $this->total_sql = "
                 SELECT
                 " . ( $params->distinct ? 'DISTINCT' : '' ) . "
-                COUNT(*) FROM {$params->table} AS `t`
+                COUNT(*)
+                FROM {$params->table} AS `t`
                 " . ( !empty( $params->join ) ? ( is_array( $params->join ) ? implode( "\n                ", $params->join ) : $params->join ) : '' ) . "
                 " . ( !empty( $params->where ) ? 'WHERE ' . ( is_array( $params->where ) ? implode( ' AND ', $params->where ) : $params->where ) : '' ) . "
                 " . ( !empty( $params->groupby ) ? 'GROUP BY ' . ( is_array( $params->groupby ) ? implode( ', ', $params->groupby ) : $params->groupby ) : '' ) . "
                 " . ( !empty( $params->having ) ? 'HAVING ' . ( is_array( $params->having ) ? implode( ' AND ', $params->having ) : $params->having ) : '' ) . "
-                " . ( !empty( $params->orderby ) ? 'ORDER BY ' . ( is_array( $params->orderby ) ? implode( ', ', $params->orderby ) : $params->orderby ) : '' ) . "
             ";
         }
         // Rewrite
@@ -1232,6 +1245,9 @@ class PodsData {
      * @since 2.0.0
      */
     public function total_found () {
+        if(false === $this->total_found_calculated)
+            $this->calculate_totals();
+
         return (int) $this->total_found;
     }
 
@@ -1419,7 +1435,7 @@ class PodsData {
             $mode = 'id';
             $id = pods_absint( $row );
 
-            if ( !is_numeric( $row ) ) {
+            if ( !is_numeric( $row ) || 0 === strpos( $row, '0' ) || $row != preg_replace( '/[^0-9]/', '', $row ) ) {
                 $mode = 'slug';
                 $id = $row;
             }
@@ -1434,14 +1450,18 @@ class PodsData {
             if ( false !== $row && is_array( $row ) )
                 $this->row = $row;
             elseif ( in_array( $this->pod_data[ 'type' ], array( 'post_type', 'media' ) ) ) {
-                if ( 'id' == $mode )
+                $post_type = $this->pod_data[ 'object' ];
+
+                if ( empty( $post_type ) )
+                    $post_type = $this->pod_data[ 'name' ];
+
+                if ( 'id' == $mode ) {
                     $this->row = get_post( $id, ARRAY_A );
+
+                    if ( is_array( $this->row ) && $this->row[ 'post_type' ] != $post_type )
+                        $this->row = false;
+                }
                 else {
-                    $post_type = $this->pod_data[ 'object' ];
-
-                    if ( empty( $post_type ) )
-                        $post_type = $this->pod_data[ 'name' ];
-
                     $args = array(
                         'post_type' => $post_type,
                         'name' => $id,
@@ -1803,12 +1823,18 @@ class PodsData {
      * @param array $fields Associative array of fields data
      *
      * @return array Traverse feed
+     * @param object $params (optional) Parameters from build()
      *
      * @since 2.0.0
      */
-    function traverse_build ( $fields = null ) {
+    function traverse_build ( $fields = null, $params = null ) {
         if ( null === $fields )
             $fields = $this->fields;
+
+        if ( empty( $fields ) && !empty( $params ) ) {
+            $table = $params->table;
+
+        }
 
         $feed = array();
 
@@ -1830,92 +1856,59 @@ class PodsData {
      * @param $fields Array of fields to traverse
      * @param string $joined
      * @param int $depth
+     * @param string $joined_id
+     * @param object $params (optional) Parameters from build()
      *
      * @return array
      *
      * @since 2.0.0
      */
-    function traverse_recurse ( $pod, $fields, $joined = 't', $depth = 0 ) {
+    function traverse_recurse ( $pod, $fields, $joined = 't', $depth = 0, $joined_id = 'id', $params = null ) {
         global $wpdb;
 
-        if ( empty( $pod ) )
-            return array();
+        $table_mode = false;
 
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+        if ( empty( $pod ) ) {
+            if ( !empty( $params ) && !empty( $params->table ) && 0 === strpos( $params->table, $wpdb->prefix ) ) {
+                $pod = trim( str_replace( $wpdb->prefix, '', $params->table ), 's' );
+
+                if ( in_array( $pod, array( 'post', 'user', 'comment' ) ) ) {
+                    $table_mode = true;
+
+                    $pod = trim( $pod, 's' );
+
+                    if ( 'post' == $pod )
+                        $pod = 'post_type';
+
+                    $pod_data = array(
+                        'id' => 0,
+                        'name' => '_table_' . $pod,
+                        'type' => $pod,
+                        'storage' => 'meta',
+                        'fields' => array()
+                    );
+
+                    $pod = $pod_data[ 'name' ];
+                }
+                else
+                    return array();
+            }
+            else
+                return array();
+        }
+
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
         if ( !isset( $this->traversal[ $pod ] ) )
             $this->traversal[ $pod ] = array();
 
-        $pod_data = $this->api->load_pod( array( 'name' => $pod ) );
+        if ( !$table_mode ) {
+            $pod_data = $this->api->load_pod( array( 'name' => $pod ), false );
 
-        if ( empty( $pod_data ) )
-            return array();
+            if ( empty( $pod_data ) )
+                return array();
 
-        $pod_id = (int) $pod_data[ 'id' ];
-
-        foreach ( $pod_data[ 'fields' ] as $field ) {
-            if ( !in_array( $field[ 'type' ], $tableless_field_types ) && !isset( $this->traversal[ $pod ][ $field[ 'name' ] ] ) )
-                continue;
-
-            $the_pod = null;
-            $table = $field[ 'pick_object' ];
-            $v = $field[ 'pick_val' ];
-            $on = 'id';
-            $name = 'name';
-            $recurse = true;
-
-            if ( 'file' == $field[ 'type' ] || 'post_type' == $table || 'media' == $table ) {
-                $table = $wpdb->posts;
-                $on = 'ID';
-                $name = 'post_title';
-                $recurse = false;
-            }
-            elseif ( 'taxonomy' == $table ) {
-                $table = $wpdb->terms;
-                $on = 'term_id';
-                $recurse = false;
-            }
-            elseif ( 'user' == $table ) {
-                $table = $wpdb->users;
-                $on = 'ID';
-                $name = 'display_name';
-                $recurse = false;
-            }
-            elseif ( 'comment' == $table ) {
-                $table = $wpdb->comments;
-                $on = 'comment_ID';
-                $name = 'comment_date';
-                $recurse = false;
-            }
-            elseif ( 'pod' == $table ) {
-                $table_data = $this->api->load_pod( array( 'name' => $v ) );
-
-                $the_pod = $v;
-                $table = $table_data[ 'table' ];
-                $on = $table_data[ 'field_id' ];
-                $name = $table_data[ 'field_index' ];
-            }
-            elseif ( !empty( $table ) ) {
-                $the_pod = $table;
-                $table = '@wp_pods_' . $table;
-                $recurse = false;
-            }
-
-            $traverse = array_merge(
-                $field,
-                array(
-                    'table' => $table,
-                    'pod' => $the_pod,
-                    'on' => $on,
-                    'name' => $name,
-                    'recurse' => $recurse
-                )
-            );
-
-            if ( isset( $this->traversal[ $pod ][ $field[ 'name' ] ] ) )
-                $traverse = array_merge( $traverse, (array) $this->traversal[ $pod ][ $field[ 'name' ] ] );
-
-            $this->traversal[ $pod ][ $field[ 'name' ] ] = $this->do_hook( 'traverse', $traverse, $pod, $fields, $joined, $depth );
+            $pod_id = (int) $pod_data[ 'id' ];
         }
 
         $joins = array();
@@ -1925,23 +1918,36 @@ class PodsData {
 
         $field = $fields[ $depth ];
 
-        if ( !isset( $this->traversal[ $pod ][ $field ] ) )
+        // Fallback to meta table if the pod type supports it
+        if ( !isset( $pod_data[ 'fields' ][ $field ] ) ) {
+            if ( in_array( $pod_data[ 'type' ], array( 'post_type', 'media', 'user', 'comment' ) ) )
+                $pod_data[ 'fields' ][ $field ] = PodsForm::field_setup( array( 'name' => $field ) );
+            else
+                return $joins;
+        }
+
+        $traverse = $pod_data[ 'fields' ][ $field ];
+
+        if ( !in_array( $traverse[ 'type' ], $tableless_field_types ) )
+            $traverse[ 'table_info' ] = $this->api->get_table_info( $pod_data[ 'type' ], $pod_data[ 'name' ], $pod_data[ 'name' ], $pod_data );
+        elseif ( empty( $traverse[ 'table_info' ] ) )
+            $traverse[ 'table_info' ] = $this->api->get_table_info( $traverse[ 'pick_object' ], $traverse[ 'pick_val' ] );
+
+        if ( isset( $this->traversal[ $pod ][ $traverse[ 'name' ] ] ) )
+            $traverse = array_merge( $traverse, (array) $this->traversal[ $pod ][ $traverse[ 'name' ] ] );
+
+        $traverse = $this->do_hook( 'traverse', $traverse, compact( 'pod', 'fields', 'joined', 'depth', 'joined_id', 'params' ) );
+
+        if ( empty( $traverse ) )
             return $joins;
 
-        $this->traversal[ $pod ][ $field ] = array_merge(
-            array(
-                'table' => null,
-                'pod' => null,
-                'on' => 'id',
-                'name' => 'name',
-                'recurse' => false,
-                'id' => 0,
-                'type' => null
-            ),
-            $this->traversal[ $pod ][ $field ]
-        );
+        $traverse = pods_sanitize( $traverse );
 
-        $this->traversal[ $pod ][ $field ][ 'id' ] = (int) $this->traversal[ $pod ][ $field ][ 'id' ];
+        $traverse[ 'id' ] = (int) $traverse[ 'id' ];
+        $table_info = $traverse[ 'table_info' ];
+
+        $this->traversal[ $pod ][ $field ] = $traverse;
+
         $field_joined = $field;
 
         if ( 0 < $depth && 't' != $joined )
@@ -1950,18 +1956,18 @@ class PodsData {
         if ( !empty( $this->search ) ) {
             if ( 0 < strlen( pods_var( 'filter_' . $field_joined, 'get' ) ) ) {
                 $val = absint( pods_var( 'filter_' . $field_joined, 'get' ) );
-                $on = $this->traversal[ $pod ][ $field ][ 'on' ];
-                $search = "`{$field_joined}`.`{$on}` = {$val}";
+
+                $search = "`{$field_joined}`.`{$table_info[ 'field_id' ]}` = {$val}";
 
                 if ( 'text' == $this->search_mode ) {
                     $val = pods_var( 'filter_' . $field_joined, 'get' );
-                    $on = $this->traversal[ $pod ][ $field ][ 'name' ];
-                    $search = "`{$field_joined}`.`{$on}` = '{$val}'";
+
+                    $search = "`{$field_joined}`.`{$traverse[ 'name' ]}` = '{$val}'";
                 }
                 elseif ( 'text_like' == $this->search_mode ) {
                     $val = pods_sanitize( like_escape( pods_var_raw( 'filter_' . $field_joined ) ) );
-                    $on = $this->traversal[ $pod ][ $field ][ 'name' ];
-                    $search = "`{$field_joined}`.`{$on}` LIKE '%{$val}%'";
+
+                    $search = "`{$field_joined}`.`{$traverse[ 'name' ]}` LIKE '%{$val}%'";
                 }
 
                 $this->search_where[] = " {$search} ";
@@ -1969,59 +1975,83 @@ class PodsData {
         }
 
         $rel_alias = 'rel_' . $field_joined;
-        $sister_id = (int) pods_var_raw( 'sister_id', $this->traversal[ $pod ][ $field ], 0 );
 
-        $related_on = "
-            `{$rel_alias}`.`field_id` = {$this->traversal[$pod][$field]['id']}
-            AND `{$rel_alias}`.`item_id` = `{$joined}`.`id`
-        ";
+        $the_join = null;
 
-        $table_related_on = "
-            `{$rel_alias}`.`field_id` = {$this->traversal[$pod][$field]['id']}
-            AND `{$field_joined}`.`{$this->traversal[$pod][$field]['on']}` = `{$rel_alias}`.`related_item_id`
-        ";
+        if ( defined( 'PODS_TABLELESS' ) && PODS_TABLELESS ) {
+            if ( 'meta' == $pod_data[ 'storage' ] ) {
+                if ( !in_array( $traverse[ 'type' ], $tableless_field_types ) ) {
+                    $the_join = "
+                        LEFT JOIN `{$table_info[ 'meta_table' ]}` AS `{$field_joined}` ON
+                            `{$field_joined}`.`{$table_info[ 'meta_field_index' ]}` = '{$traverse[ 'name' ]}'
+                            AND `{$field_joined}`.`{$table_info[ 'meta_field_id' ]}` = `{$joined}`.`{$joined_id}`
+                    ";
 
-        if ( 0 < $sister_id ) {
-            $related_on = "
-                (
-                    `{$rel_alias}`.`field_id` = {$this->traversal[$pod][$field]['id']}
-                    AND `{$rel_alias}`.`item_id` = `{$joined}`.`id`
-                )
-                OR (
-                    `{$rel_alias}`.`related_field_id` = {$this->traversal[$pod][$field]['id']}
-                    AND `{$rel_alias}`.`related_item_id` = `{$joined}`.`id`
-                )
-            ";
+                    $table_info[ 'recurse' ] = false;
+                }
+                else {
+                    $the_join = "
+                        LEFT JOIN `{$table_info[ 'meta_table' ]}` AS `{$rel_alias}` ON
+                            `{$rel_alias}`.`{$table_info[ 'meta_field_index' ]}` = '{$traverse[ 'name' ]}'
+                            AND `{$rel_alias}`.`{$table_info[ 'meta_field_id' ]}` = `{$joined}`.`{$joined_id}`
 
-            $table_related_on = "
-                (
-                    `{$rel_alias}`.`field_id` = {$this->traversal[$pod][$field]['id']}
-                    AND `{$field_joined}`.`{$this->traversal[$pod][$field]['on']}` = `{$rel_alias}`.`related_item_id`
-                )
-                OR (
-                    `{$rel_alias}`.`related_field_id` = {$this->traversal[$pod][$field]['id']}
-                    AND `{$field_joined}`.`{$this->traversal[$pod][$field]['on']}` = `{$rel_alias}`.`item_id`
-                )
-            ";
+                        LEFT JOIN `{$table_info[ 'meta_table' ]}` AS `{$field_joined}` ON
+                            `{$field_joined}`.`{$table_info[ 'meta_field_index' ]}` = '{$traverse[ 'name' ]}'
+                            AND `{$field_joined}`.`{$table_info[ 'meta_field_id' ]}` = CONVERT( `{$rel_alias}`.`{$table_info[ 'meta_field_value' ]}`, SIGNED )
+                    ";
+
+                    $joined_id = $table_info[ 'meta_field_id' ];
+                }
+            }
+        }
+        else {
+            if ( 'meta' == $pod_data[ 'storage' ] ) {
+                if ( !in_array( $traverse[ 'type' ], $tableless_field_types ) ) {
+                    $the_join = "
+                        LEFT JOIN `{$table_info[ 'meta_table' ]}` AS `{$field_joined}` ON
+                            `{$field_joined}`.`{$table_info[ 'meta_field_index' ]}` = '{$traverse[ 'name' ]}'
+                            AND `{$field_joined}`.`{$table_info[ 'meta_field_id' ]}` = `{$joined}`.`{$joined_id}`
+                    ";
+
+                    $table_info[ 'recurse' ] = false;
+                }
+                else {
+                    $the_join = "
+                        LEFT JOIN `@wp_podsrel` AS `{$rel_alias}` ON
+                            `{$rel_alias}`.`field_id` = {$traverse[ 'id' ]}
+                            AND `{$rel_alias}`.`item_id` = `{$joined}`.`{$joined_id}`
+
+                        LEFT JOIN `{$table_info[ 'meta_table' ]}` AS `{$field_joined}` ON
+                            `{$field_joined}`.`{$table_info[ 'meta_field_index' ]}` = '{$traverse[ 'name' ]}'
+                            AND `{$field_joined}`.`{$table_info[ 'meta_field_id' ]}` = `{$rel_alias}`.`related_item_id`
+                    ";
+
+                    $joined_id = $table_info[ 'meta_field_id' ];
+                }
+            }
+            elseif ( 'table' == $pod_data[ 'storage' ] && in_array( $traverse[ 'type' ], $tableless_field_types ) ) {
+                $the_join = "
+                    LEFT JOIN `@wp_podsrel` AS `{$rel_alias}` ON
+                        `{$rel_alias}`.`field_id` = {$traverse[ 'id' ]}
+                        AND `{$rel_alias}`.`item_id` = `{$joined}`.`id`
+
+                    LEFT JOIN `{$table_info[ 'table' ]}` AS `{$field_joined}` ON
+                        `{$field_joined}`.`{$table_info[ 'field_id' ]}` = `{$rel_alias}`.`related_item_id`
+                ";
+
+                $joined_id = 'id';
+            }
         }
 
-        $the_join = "
-            LEFT JOIN `@wp_podsrel` AS `{$rel_alias}` ON
-                {$related_on}
-            LEFT JOIN `{$this->traversal[$pod][$field]['table']}` AS `{$field_joined}` ON
-                {$table_related_on}
-        ";
+        $the_join = $this->do_hook( 'traverse_the_join', $the_join, compact( 'pod', 'fields', 'joined', 'depth', 'joined_id', 'params' ) );
 
-        if ( !in_array( $this->traversal[ $pod ][ $field ][ 'type' ], array( 'pick', 'file' ) ) ) {
-            $the_join = "
-                LEFT JOIN `{$this->traversal[$pod][$field]['table']}` AS `{$field_joined}` ON `{$field_joined}`.`{$this->traversal[$pod][$field]['on']}` = CONVERT(`{$joined}`.`{$field_joined}`, SIGNED)
-            ";
-        }
+        if ( empty( $the_join ) )
+            return $joins;
 
-        $joins[ $pod . '_' . $depth . '_' . $this->traversal[ $pod ][ $field ][ 'id' ] ] = apply_filters( 'pods_traverse_the_join', $the_join, $pod, $fields, $joined, $depth, $this );
+        $joins[ $pod . '_' . $depth . '_' . $traverse[ 'id' ] ] = $the_join;
 
-        if ( ( $depth + 1 ) < count( $fields ) && null !== $this->traversal[ $pod ][ $field ][ 'pod' ] && false !== $this->traversal[ $pod ][ $field ][ 'recurse' ] )
-            $joins = array_merge( $joins, $this->traverse_recurse( $this->traversal[ $pod ][ $field ][ 'pod' ], $fields, $field_joined, ( $depth + 1 ) ) );
+        if ( ( $depth + 1 ) < count( $fields ) && null !== $table_info[ 'pod' ] && false !== $table_info[ 'recurse' ] )
+            $joins = array_merge( $joins, $this->traverse_recurse( $table_info[ 'pod' ], $fields, $field_joined, ( $depth + 1 ) ), $joined_id, $params );
 
         return $joins;
     }
@@ -2031,20 +2061,21 @@ class PodsData {
      *
      * @param array $fields Fields to recurse
      * @param null $all_fields (optional) If $fields is empty then traverse all fields, argument does not need to be passed
+     * @param object $params (optional) Parameters from build()
      *
      * @return array Array of joins
      */
-    function traverse ( $fields = null, $all_fields = null ) {
+    function traverse ( $fields = null, $all_fields = null, $params = null ) {
         $joins = array();
 
         if ( null === $fields )
-            $fields = $this->traverse_build( $all_fields );
+            $fields = $this->traverse_build( $all_fields, $params );
 
         foreach ( (array) $fields as $field_group ) {
             if ( is_array( $field_group ) )
-                $joins = array_merge( $joins, $this->traverse_recurse( $this->pod, $field_group ) );
+                $joins = array_merge( $joins, $this->traverse_recurse( $this->pod, $field_group, 't', 0, 'id', $params ) );
             else {
-                $joins = array_merge( $joins, $this->traverse_recurse( $this->pod, $fields ) );
+                $joins = array_merge( $joins, $this->traverse_recurse( $this->pod, $fields, 't', 0, 'id', $params ) );
                 $joins = array_filter( $joins );
 
                 return $joins;

@@ -421,7 +421,7 @@ function pods_trim ( $input, $charlist = null, $lr = null ) {
  * Return a variable (if exists)
  *
  * @param mixed $var The variable name or URI segment position
- * @param string $type (optional) get|url|post|request|server|session|cookie|constant|user|option|site-option|transient|site-transient|cache
+ * @param string $type (optional) get|url|post|request|server|session|cookie|constant|global|user|option|site-option|transient|site-transient|cache|date
  * @param mixed $default (optional) The default value to set if variable doesn't exist
  * @param mixed $allowed (optional) The value(s) allowed
  * @param bool $strict (optional) Only allow values (must not be empty)
@@ -485,6 +485,8 @@ function pods_var ( $var = 'last', $type = 'get', $default = null, $allowed = nu
         }
         elseif ( 'session' == $type && isset( $_SESSION[ $var ] ) )
             $output = $_SESSION[ $var ];
+        elseif ( in_array( $type, array( 'global', 'globals' ) ) && isset( $GLOBALS[ $var ] ) )
+            $output = $GLOBALS[ $var ];
         elseif ( 'cookie' == $type && isset( $_COOKIE[ $var ] ) )
             $output = stripslashes_deep( $_COOKIE[ $var ] );
         elseif ( 'constant' == $type && defined( $var ) )
@@ -526,6 +528,12 @@ function pods_var ( $var = 'last', $type = 'get', $default = null, $allowed = nu
             }
 
             $output = wp_cache_get( $var, $group, $force );
+        }
+        elseif ( 'date' == $type ) {
+            $var = explode( '|', $var );
+
+            if ( !empty( $var ) )
+                $output = date_i18n( $var[ 0 ], ( isset( $var[ 1 ] ) ? strtotime( $var[ 1 ] ) : false ) );
         }
         else
             $output = apply_filters( 'pods_var_' . $type, $default, $var, $allowed, $strict, $casting, $context );
@@ -759,11 +767,12 @@ function pods_create_slug ( $orig, $strict = true ) {
  *
  * @param string $orig Input string to clean
  * @param boolean $lower Force lowercase
+ * @param boolean $trim_underscores Whether to trim off underscores
  *
  * @return mixed|void
  * @since 1.2.0
  */
-function pods_clean_name ( $orig, $lower = true ) {
+function pods_clean_name ( $orig, $lower = true, $trim_underscores = true ) {
     $str = preg_replace( "/([- ])/", "_", trim( $orig ) );
 
     if ( $lower )
@@ -771,7 +780,10 @@ function pods_clean_name ( $orig, $lower = true ) {
 
     $str = preg_replace( "/([^0-9a-zA-Z_])/", "", $str );
     $str = preg_replace( "/(_){2,}/", "_", $str );
-    $str = trim( $str, ' _' );
+    $str = trim( $str );
+
+    if ( $trim_underscores )
+        $str = trim( $str, '_' );
 
     $str = apply_filters( 'pods_clean_name', $str, $orig, $lower );
 
@@ -872,6 +884,7 @@ function pods_absint ( $maybeint, $strict = true, $allow_negative = false ) {
  * @param int $occurrences (optional)
  *
  * @return mixed
+ * @version 2.0.0
  */
 function pods_str_replace ( $find, $replace, $string, $occurrences = -1 ) {
     if ( is_array( $find ) ) {
@@ -883,6 +896,118 @@ function pods_str_replace ( $find, $replace, $string, $occurrences = -1 ) {
         $find = '/' . preg_quote( $find, '/' ) . '/';
 
     return preg_replace( $find, $replace, $string, $occurrences );
+}
+
+/**
+ * Evaluate tags like magic tags but through pods_var
+ *
+ * @param string|array $tags String to be evaluated
+ * @param bool $sanitize Whether to sanitize tags
+ *
+ * @return string
+ * @version 2.1.0
+ */
+function pods_evaluate_tags ( $tags, $sanitize = false ) {
+    if ( is_array( $tags ) ) {
+        foreach ( $tags as $k => $tag ) {
+            $tags[ $k ] = pods_evaluate_tags( $tag, $sanitize );
+        }
+
+        return $tags;
+    }
+
+    if ( $sanitize )
+        return preg_replace_callback( '/({@(.*?)})/m', 'pods_evaluate_tag_sanitized', (string) $tags );
+    else
+        return preg_replace_callback( '/({@(.*?)})/m', 'pods_evaluate_tag', (string) $tags );
+}
+
+/**
+ * Evaluate tag like magic tag but through pods_var_raw and sanitized
+ *
+ * @param string|array $tag
+ *
+ * @return string
+ * @version 2.1.0
+ * @see pods_evaluate_tag
+ */
+function pods_evaluate_tag_sanitized ( $tag ) {
+    return pods_evaluate_tag( $tag, true );
+}
+
+/**
+ * Evaluate tag like magic tag but through pods_var_raw
+ *
+ * @param string|array $tag
+ * @param bool $sanitize Whether to sanitize tags
+ *
+ * @return string
+ * @version 2.1.0
+ */
+function pods_evaluate_tag ( $tag, $sanitize = false ) {
+    // Handle pods_evaluate_tags
+    if ( is_array( $tag ) ) {
+        if ( !isset( $tag[ 2 ] ) && strlen( trim( $tag[ 2 ] ) ) < 1 )
+            return;
+
+        $tag = $tag[ 2 ];
+    }
+
+    $tag = trim( $tag, ' {@}' );
+    $tag = explode( '.', $tag );
+
+    if ( empty( $tag ) || !isset( $tag[ 0 ] ) || strlen( trim( $tag[ 0 ] ) ) < 1 )
+        return;
+
+    // Fix formatting that may be after the first .
+    if ( 2 < count( $tag ) ) {
+        $first_tag = $tag[ 0 ];
+        unset( $tag[ 0 ] );
+
+        $tag = array(
+            $first_tag,
+            implode( '.', $tag )
+        );
+    }
+
+    foreach ( $tag as $k => $v ) {
+        $tag[ $k ] = trim( $v );
+    }
+
+    $value = '';
+
+    if ( 1 == count( $tag ) )
+        $value = pods_var_raw( $tag[ 0 ], 'get', '', null, true );
+    elseif ( 2 == count( $tag ) )
+        $value = pods_var_raw( $tag[ 1 ], $tag[ 0 ], '', null, true );
+
+    $value = apply_filters( 'pods_evaluate_tag', $value, $tag );
+
+    if ( $sanitize )
+        $value = pods_sanitize( $value );
+
+    return $value;
+}
+
+/**
+ * Check whether or not WordPress is a specific version minimum and/or maximum
+ *
+ * @param string $minimum_version Minimum WordPress version
+ * @param string $comparison Comparison operator
+ * @param string $maximum_version Maximum WordPress version
+ *
+ * @return bool
+ */
+function pods_wp_version ( $minimum_version, $comparison = '<=', $maximum_version = null ) {
+    global $wp_version;
+
+    if ( !empty( $minimum_version ) && !version_compare( $minimum_version, $wp_version, $comparison ) )
+        return false;
+
+    if ( !empty( $maximum_version ) && !version_compare( $wp_version, $maximum_version, $comparison ) )
+        return false;
+
+    return true;
 }
 
 /**
@@ -1161,9 +1286,6 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
     if ( is_object( $value ) )
         $value = get_object_vars( $value );
 
-    if ( !is_array( $value ) )
-        return $value;
-
     $field_index = null;
 
     $simple = false;
@@ -1171,10 +1293,10 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
     if ( !empty( $fields ) && is_array( $fields ) && isset( $fields[ $field ] ) ) {
         $field = $fields[ $field ];
 
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
         if ( !empty( $field ) && is_array( $field ) && in_array( $field[ 'type' ], $tableless_field_types ) ) {
-            if ( 'file' == $field[ 'type' ] )
+            if ( in_array( $field[ 'type' ], apply_filters( 'pods_file_field_types', array( 'file', 'avatar' ) ) ) )
                 $field_index = 'guid';
             elseif ( 'custom-simple' == $field[ 'pick_object' ] )
                 $simple = true;
@@ -1187,12 +1309,21 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
         }
     }
 
+    if ( $simple && is_array( $field ) && !is_array( $value ) && !empty( $value ) )
+        $value = PodsForm::field_method( 'pick', 'simple_value', $value, $field );
+
+    if ( !is_array( $value ) )
+        return $value;
+
     $and = ' ' . __( 'and', 'pods' ) . ' ';
 
     $last = '';
 
     if ( !empty( $value ) )
         $last = array_pop( $value );
+
+    if ( $simple && is_array( $field ) && !is_array( $last ) && !empty( $last ) )
+        $last = PodsForm::field_method( 'pick', 'simple_value', $last, $field );
 
     if ( is_array( $last ) ) {
         if ( null !== $field_index && isset( $last[ $field_index ] ) )
@@ -1213,6 +1344,9 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
             if ( isset( $value[ 0 ] ) )
                 $value = $value[ 0 ];
 
+            if ( $simple && is_array( $field ) && !is_array( $value ) && !empty( $value ) )
+                $value = PodsForm::field_method( 'pick', 'simple_value', $value, $field );
+
             if ( is_array( $value ) ) {
                 if ( null !== $field_index && isset( $value[ $field_index ] ) )
                     $value = $value[ $field_index ];
@@ -1231,6 +1365,9 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
                 $value = array( $value );
 
             foreach ( $value as $k => &$v ) {
+                if ( $simple && is_array( $field ) && !is_array( $v ) && !empty( $v ) )
+                    $v = PodsForm::field_method( 'pick', 'simple_value', $v, $field );
+
                 if ( is_array( $v ) ) {
                     if ( null !== $field_index && isset( $v[ $field_index ] ) )
                         $v = $v[ $field_index ];
@@ -1551,28 +1688,37 @@ function pods_image_url ( $image, $size = 'thumbnail', $default = 0 ) {
 function pods_permission ( $options ) {
     $permission = false;
 
-    if ( 1 == pods_var( 'restrict_capability', $options, 0 ) ) {
-        if ( is_user_logged_in() ) {
-            if ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'manage_options' ) )
-                $permission = true;
+    if ( isset( $options[ 'options' ] ) )
+        $options = $options[ 'options' ];
 
-            $capabilities = explode( ',', pods_var( 'capability_allowed', $options ) );
-            $capabilities = array_unique( array_filter( $capabilities ) );
+    if ( is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'manage_options' ) ) )
+        $permission = true;
+    elseif ( 1 == pods_var( 'restrict_capability', $options, 0 ) ) {
+        $capabilities = explode( ',', pods_var( 'capability_allowed', $options ) );
+        $capabilities = array_unique( array_filter( $capabilities ) );
 
-            foreach ( $capabilities as $capability ) {
-                if ( current_user_can( $capability ) ) {
-                    $permission = true;
+        foreach( $capabilities as $capability ) {
+            $must_have_capabilities = explode( '&&', $capability );
+            $must_have_capabilities = array_unique( array_filter( $must_have_capabilities ) );
+
+            $must_have_permission = true;
+
+            foreach ( $must_have_capabilities as $must_have_capability ) {
+                if ( !current_user_can( $must_have_capability ) ) {
+                    $must_have_permission = false;
 
                     break;
                 }
             }
+
+            if ( $must_have_permission ) {
+                $permission = true;
+
+                break;
+            }
         }
     }
-    elseif ( 1 == pods_var( 'admin_only', $options, 0 ) ) {
-        if ( is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'manage_options' ) ) )
-            $permission = true;
-    }
-    else
+    elseif ( 0 == pods_var( 'admin_only', $options, 0 ) )
         $permission = true;
 
     return $permission;
@@ -1607,6 +1753,49 @@ function pods_var_user ( $anon = false, $user = true, $capability = null ) {
     }
 
     return $value;
+}
+
+/**
+ * Get a field value from a Pod
+ *
+ * @param string $pod The pod name
+ * @param mixed $id (optional) The ID or slug, to load a single record; Provide array of $params to run 'find'
+ * @param string|array $name The field name, or an associative array of parameters
+ * @param boolean $single (optional) For tableless fields, to return the whole array or the just the first item
+ *
+ * @return mixed Field value
+ */
+function pods_field ( $pod, $id, $name, $single = false ) {
+    return pods( $pod, $id )->field( $name, $single );
+}
+
+/**
+ * Get a field display value from a Pod
+ *
+ * @param string $pod The pod name
+ * @param mixed $id (optional) The ID or slug, to load a single record; Provide array of $params to run 'find'
+ * @param string|array $name The field name, or an associative array of parameters
+ * @param boolean $single (optional) For tableless fields, to return the whole array or the just the first item
+ *
+ * @return mixed Field value
+ */
+function pods_field_display ( $pod, $id, $name, $single = false ) {
+    return pods( $pod, $id )->display( $name, $single );
+}
+
+/**
+ * Get a field raw value from a Pod
+ *
+ * @param string $pod The pod name
+ * @param mixed $id (optional) The ID or slug, to load a single record; Provide array of $params to run 'find'
+ * @param string|array $name The field name, or an associative array of parameters
+ * @param boolean $single (optional) For tableless fields, to return the whole array or the just the first item
+ *
+ * @return mixed Field value
+ */
+function pods_field_raw ( $pod, $id, $name, $single = false ) {
+    return pods( $pod, $id )->raw( $name, $single );
+
 }
 
 /**
@@ -1737,7 +1926,7 @@ function pods_form () {
 }
 
 /**
- * Include and Init the PodsFormUI class
+ * Include and Init the PodsMeta class
  *
  * @see PodsMeta
  *
@@ -1752,7 +1941,7 @@ function pods_meta () {
 }
 
 /**
- * Include and Init the PodsAdminUI class
+ * Include and Init the PodsAdmin class
  *
  * @see PodsAdmin
  *
@@ -1764,6 +1953,38 @@ function pods_admin () {
     require_once( PODS_DIR . 'classes/PodsAdmin.php' );
 
     return new PodsAdmin();
+}
+
+/**
+ * Include and Init the PodsUpgrade class
+ *
+ * @param string $version Version number of upgrade to get
+ *
+ * @see PodsUpgrade
+ *
+ * @return PodsUpgrade
+ *
+ * @since 2.1.0
+ */
+function pods_upgrade ( $version = '' ) {
+    $class_name = str_replace( '.', '_', $version );
+    $class_name = "PodsUpgrade_{$class_name}";
+
+    $class_name = trim( $class_name, '_' );
+
+    if ( !class_exists( $class_name ) ) {
+        $file = PODS_DIR . 'sql/upgrade/' . basename( $class_name ) . '.php';
+
+        if ( file_exists( $file ) )
+            include_once $file;
+    }
+
+    $class = false;
+
+    if ( class_exists( $class_name ) )
+        $class = new $class_name();
+
+    return $class;
 }
 
 /**
@@ -1967,6 +2188,48 @@ function pods_transient_clear ( $key = true ) {
 }
 
 /**
+ * Add a new Pod outside of the DB
+ *
+ * @see PodsMeta::register
+ *
+ * @param string $type The pod type ('post_type', 'taxonomy', 'media', 'user', 'comment')
+ * @param string $name The pod name
+ * @param array $object (optional) Pod array, including any 'fields' arrays
+ *
+ * @since 2.1.0
+ */
+function pods_register_type ( $type, $name, $object = null ) {
+    if ( empty( $object ) )
+        $object = array();
+
+    if ( !empty( $name ) )
+        $object[ 'name' ] = $name;
+
+    pods_meta()->register( $type, $object );
+}
+
+/**
+ * Add a new Pod field outside of the DB
+ *
+ * @see PodsMeta::register_field
+ *
+ * @param string $pod The pod name
+ * @param string $name The name of the Pod
+ * @param array $object (optional) Pod array, including any 'fields' arrays
+ *
+ * @since 2.1.0
+ */
+function pods_register_field ( $pod, $name, $field = null ) {
+    if ( empty( $field ) )
+        $field = array();
+
+    if ( !empty( $name ) )
+        $field[ 'name' ] = $name;
+
+    pods_meta()->register_field( $pod, $field );
+}
+
+/**
  * Add a meta group of fields to add/edit forms
  *
  * @see PodsMeta::group_add
@@ -2083,7 +2346,8 @@ function pods_no_conflict_on ( $object_type = 'post' ) {
         );
 
         $no_conflict[ 'action' ] = array(
-            array( 'wp_insert_comment', array( PodsInit::$meta, 'save_comment' ) ),
+            array( 'pre_comment_approved', array( PodsInit::$meta, 'validate_comment' ), 10, 2 ),
+            array( 'comment_post', array( PodsInit::$meta, 'save_comment' ) ),
             array( 'edit_comment', array( PodsInit::$meta, 'save_comment' ) )
         );
     }

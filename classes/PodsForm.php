@@ -580,7 +580,7 @@ class PodsForm {
     public static function display ( $type, $value = null, $name = null, $options = null, $pod = null, $id = null, $traverse = null ) {
         self::field_loader( $type );
 
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
         if ( method_exists( self::$loaded[ $type ], 'display' ) ) {
             if ( is_array( $value ) && in_array( $type, $tableless_field_types ) ) {
@@ -726,22 +726,16 @@ class PodsForm {
      */
     public static function default_value ( $value, $type = 'text', $name = null, $options = null, $pod = null, $id = null ) {
         $default_value = pods_var_raw( 'default_value', $options, $value, null, true );
-        $default_value_parameter = pods_var_raw( 'default_value_parameter', $options, $default_value, null, true );
-        $default = pods_var_raw( 'default', $options, $default_value_parameter, null, true );
+        $default = pods_var_raw( 'default', $options, $default_value, null, true );
 
-        $default_value = trim( $default, ' {@}' );
+        $default_value = str_replace( array( '{@', '}' ), '', trim( $default ) );
 
-        if ( $default != $default_value ) {
-            $value = $default_value;
+        if ( $default != $default_value )
+            $default = pods_evaluate_tags( $default );
 
-            $default_value = explode( '.', $default_value );
+        $default = pods_var_raw( pods_var_raw( 'default_value_parameter', $options ), 'request', $default, null, true );
 
-            if ( 1 == count( $default_value ) )
-                $value = pods_var_raw( $default_value[ 0 ], 'get', '', null, true );
-            elseif ( 2 == count( $default_value ) )
-                $value = pods_var_raw( $default_value[ 1 ], $default_value[ 0 ], '', null, true );
-        }
-        elseif ( $default != $value )
+        if ( $default != $value )
             $value = $default;
 
         if ( is_array( $value ) )

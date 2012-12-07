@@ -10,6 +10,16 @@ class PodsMeta {
     private $api;
 
     /**
+     * @var int
+     */
+    public static $object_identifier = -1;
+
+    /**
+     * @var array
+     */
+    public static $advanced_content_types = array();
+
+    /**
      * @var array
      */
     public static $post_types = array();
@@ -37,6 +47,11 @@ class PodsMeta {
     /**
      * @var array
      */
+    public static $queue = array();
+
+    /**
+     * @var array
+     */
     public static $groups = array();
 
     /**
@@ -50,6 +65,7 @@ class PodsMeta {
      * @return PodsMeta
      */
     public function init () {
+        self::$advanced_content_types = $this->api->load_pods( array( 'type' => 'pod' ) );
         self::$post_types = $this->api->load_pods( array( 'type' => 'post_type' ) );
         self::$taxonomies = $this->api->load_pods( array( 'type' => 'taxonomy' ) );
         self::$media = $this->api->load_pods( array( 'type' => 'media' ) );
@@ -109,8 +125,13 @@ class PodsMeta {
         }
 
         if ( !empty( self::$media ) ) {
-            // Handle Media Editor
+            if ( pods_wp_version( '3.5-alpha' ) ) {
+                add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
+                add_action( 'wp_ajax_save-attachment-compat', array( $this, 'save_media_ajax' ), 0 );
+            }
+
             add_filter( 'attachment_fields_to_edit', array( $this, 'meta_media' ), 10, 2 );
+
             add_filter( 'attachment_fields_to_save', array( $this, 'save_media' ), 10, 2 );
             add_filter( 'wp_update_attachment_metadata', array( $this, 'save_media' ), 10, 2 );
 
@@ -136,11 +157,12 @@ class PodsMeta {
         }
 
         if ( !empty( self::$comment ) ) {
-            // Handle Comment Editor
+            // Handle Comment Form / Editor
             add_action( 'comment_form_logged_in_after', array( $this, 'meta_comment_new_logged_in' ), 10, 2 );
             add_filter( 'comment_form_default_fields', array( $this, 'meta_comment_new' ) );
             add_action( 'add_meta_boxes_comment', array( $this, 'meta_comment_add' ) );
-            add_action( 'wp_insert_comment', array( $this, 'save_comment' ) );
+            add_filter( 'pre_comment_approved', array( $this, 'validate_comment' ), 10, 2 );
+            add_action( 'comment_post', array( $this, 'save_comment' ) );
             add_action( 'edit_comment', array( $this, 'save_comment' ) );
 
             // Handle *_comment_meta
@@ -153,9 +175,125 @@ class PodsMeta {
             add_action( 'delete_comment', array( $this, 'delete_comment' ), 10, 1 );
         }
 
+        if ( is_admin() )
+            $this->integrations();
+
+        add_action( 'init', array( $this, 'enqueue' ), 9 );
+
         do_action( 'pods_meta_init' );
 
         return $this;
+    }
+
+    public static function enqueue () {
+        foreach ( self::$queue as $type => $objects ) {
+            foreach ( $objects as $pod_name => $pod ) {
+                pods_transient_set( 'pods_pod_' . $pod_name, $pod );
+            }
+
+            self::$$type = array_merge( self::$$type, $objects );
+        }
+    }
+
+    public function register ( $type, $pod ) {
+        $pod_type = $type;
+
+        if ( 'post_type' == $type )
+            $type = 'post_types';
+        elseif ( 'taxonomy' == $type )
+            $type = 'taxonomies';
+        elseif ( 'pod' == $type )
+            $type = 'advanced_content_types';
+
+        if ( !isset( self::$queue[ $type ] ) )
+            self::$queue[ $type ] = array();
+
+        $pod[ 'type' ] = $pod_type;
+        $pod = $this->api->save_pod( $pod, false, self::$object_identifier );
+
+        if ( !empty( $pod ) ) {
+            self::$object_identifier--;
+
+            self::$queue[ $type ][ $pod[ 'name' ] ] = $pod;
+
+            return $pod;
+        }
+
+        return false;
+    }
+
+    public function register_field ( $pod, $field ) {
+        $pod = $this->api->load_pod( array( 'name' => $pod ), false );
+
+        if ( !empty( $pod ) ) {
+            $type = $pod[ 'type' ];
+
+            if ( 'post_type' == $pod[ 'type' ] )
+                $type = 'post_types';
+            elseif ( 'taxonomy' == $pod[ 'type' ] )
+                $type = 'taxonomies';
+            elseif ( 'pod' == $pod[ 'type' ] )
+                $type = 'advanced_content_types';
+
+            if ( !isset( self::$queue[ $pod[ 'type' ] ] ) )
+                self::$queue[ $type ] = array();
+
+            $field = $this->api->save_field( $field, false, false, $pod[ 'id' ] );
+
+            if ( !empty( $field ) ) {
+                $pod[ 'fields' ][ $field[ 'name' ] ] = $field;
+
+                self::$queue[ $type ][ $pod[ 'name' ] ] = $pod;
+
+                return $field;
+            }
+        }
+
+        return false;
+    }
+
+    public function integrations () {
+        add_filter( 'cpac-get-meta-by-type', array( $this, 'cpac_meta_keys' ), 10, 2 );
+        add_filter( 'cpac-get-post-types', array( $this, 'cpac_post_types' ), 10, 1 );
+    }
+
+    public function cpac_meta_keys ( $meta_fields, $type ) {
+        $object_type = 'post_type';
+
+        $object = $type;
+
+        if ( 'wp-media' == $type )
+            $object_type = $object = 'media';
+        elseif ( 'wp-users' == $type )
+            $object_type = $object = 'user';
+        elseif ( 'wp-comments' == $type )
+            $object_type = $object = 'comment';
+
+        $pod = $this->api->load_pod( array( 'name' => $object ), false );
+
+        // Add Pods fields
+        if ( !empty( $pod ) && $object_type == $pod[ 'type' ] ) {
+            foreach ( $pod[ 'fields' ] as $field => $field_data ) {
+                if ( !in_array( $field, $meta_fields ) )
+                    $meta_fields[] = $field;
+            }
+        }
+
+        // Remove internal Pods fields
+        foreach ( $meta_fields as $field => $meta_field ) {
+            if ( 0 === strpos( $meta_field, '_pods_' ) )
+                unset( $meta_fields[ $meta_field ] );
+        }
+
+        return $meta_fields;
+    }
+
+    public function cpac_post_types ( $post_types ) {
+        // Remove internal Pods post types
+        foreach ( $post_types as $post_type => $post_type_name ) {
+            if ( 0 === strpos( $post_type, '_pods_' ) || 0 === strpos( $post_type_name, '_pods_' ) )
+                unset( $post_types[ $post_type ] );
+        }
     }
 
     /**
@@ -173,7 +311,7 @@ class PodsMeta {
      */
     public function group_add ( $pod, $label, $fields, $context = 'normal', $priority = 'default' ) {
         if ( !is_array( $pod ) ) {
-            $_pod = pods_api()->load_pod( array( 'name' => $pod ), false );
+            $_pod = $this->api->load_pod( array( 'name' => $pod ), false );
 
             if ( !empty( $_pod ) )
                 $pod = $_pod;
@@ -292,8 +430,14 @@ class PodsMeta {
             }
         }
         elseif ( 'media' == $pod[ 'type' ] ) {
-            if ( !has_filter( 'attachment_fields_to_edit', array( $this, 'meta_media' ), 10, 2 ) ) {
+            if ( !has_filter( 'wp_update_attachment_metadata', array( $this, 'save_media' ), 10, 2 ) ) {
+                if ( pods_wp_version( '3.5-alpha' ) ) {
+                    add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
+                    add_action( 'wp_ajax_save-attachment-compat', array( $this, 'save_media_ajax' ), 0 );
+                }
+
                 add_filter( 'attachment_fields_to_edit', array( $this, 'meta_media' ), 10, 2 );
+
                 add_filter( 'attachment_fields_to_save', array( $this, 'save_media' ), 10, 2 );
                 add_filter( 'wp_update_attachment_metadata', array( $this, 'save_media' ), 10, 2 );
             }
@@ -363,6 +507,11 @@ class PodsMeta {
      * @return array
      */
     public function groups_get ( $type, $name ) {
+        if ( 'post_type' == $type && 'attachment' == $name ) {
+            $type = 'media';
+            $name = 'media';
+        }
+
         do_action( 'pods_meta_groups', $type, $name );
 
         $pod = array();
@@ -464,7 +613,7 @@ class PodsMeta {
         <?php
         $id = null;
 
-        if ( is_object( $post ) )
+        if ( is_object( $post ) && false === strpos( $_SERVER[ 'REQUEST_URI' ], '/post-new.php?' ) )
             $id = $post->ID;
 
         $pod = pods( $metabox[ 'args' ][ 'group' ][ 'pod' ][ 'name' ], $id, true );
@@ -611,7 +760,7 @@ class PodsMeta {
     public function meta_media ( $form_fields, $post ) {
         $groups = $this->groups_get( 'media', 'media' );
 
-        if ( empty( $groups ) )
+        if ( empty( $groups ) || 'attachment' == pods_var( 'typenow', 'global' ) )
             return $form_fields;
 
         wp_enqueue_style( 'pods-form' );
@@ -672,8 +821,11 @@ class PodsMeta {
 
         $post_id = $attachment;
 
-        if ( is_array( $post ) && !empty( $post ) && isset( $post[ 'ID' ] ) )
+        if ( is_array( $post ) && !empty( $post ) && isset( $post[ 'ID' ] ) && 'attachment' == $post[ 'post_type' ] )
             $post_id = $post[ 'ID' ];
+
+        if ( is_array( $post_id ) || empty( $post_id ) )
+            return $post;
 
         $data = array();
 
@@ -719,6 +871,37 @@ class PodsMeta {
         do_action( 'pods_meta_save_media', $data, $pod, $id, $groups, $post, $attachment );
 
         return $post;
+    }
+
+    public function save_media_ajax () {
+        if ( !isset( $_POST[ 'id' ] ) || empty( $_POST[ 'id' ] ) || absint( $_POST[ 'id' ] ) < 1 )
+            return;
+
+        $id = absint( $_POST[ 'id' ] );
+
+        if ( !isset( $_POST[ 'nonce' ] ) || empty( $_POST[ 'nonce' ] ) )
+            return;
+
+        check_ajax_referer( 'update-post_' . $id, 'nonce' );
+
+        if ( !current_user_can( 'edit_post', $id ) )
+            return;
+
+        $post = get_post( $id, ARRAY_A );
+
+    	if ( 'attachment' != $post[ 'post_type' ] )
+            return;
+
+        // fix ALL THE THINGS
+
+        if ( !isset( $_REQUEST[ 'attachments' ] ) )
+            $_REQUEST[ 'attachments' ] = array();
+
+        if ( !isset( $_REQUEST[ 'attachments' ][ $id ] ) )
+            $_REQUEST[ 'attachments' ][ $id ] = array();
+
+        if ( empty( $_REQUEST[ 'attachments' ][ $id ] ) )
+            $_REQUEST[ 'attachments' ][ $id ][ '_fix_wp' ] = 1;
     }
 
     /**
@@ -1129,13 +1312,57 @@ class PodsMeta {
     }
 
     /**
+     * @param $approved
+     * @param $commentdata
+     */
+    public function validate_comment ( $approved, $commentdata ) {
+        $groups = $this->groups_get( 'comment', 'comment' );
+
+        if ( empty( $groups ) )
+            return $approved;
+
+        $data = array();
+
+        $pod = null;
+        $id = null;
+
+        foreach ( $groups as $group ) {
+            if ( empty( $group[ 'fields' ] ) )
+                continue;
+
+            if ( null === $pod )
+                $pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
+
+            foreach ( $group[ 'fields' ] as $field ) {
+                if ( false === PodsForm::permission( $field[ 'type' ], $field[ 'name' ], $field, $group[ 'fields' ], $pod, $id ) )
+                    continue;
+
+                $data[ $field[ 'name' ] ] = '';
+
+                if ( isset( $_POST[ 'pods_meta_' . $field[ 'name' ] ] ) )
+                    $data[ $field[ 'name' ] ] = $_POST[ 'pods_meta_' . $field[ 'name' ] ];
+
+                $validate = $this->api->handle_field_validation( $data[ $field[ 'name' ] ], $field[ 'name' ], $this->api->get_wp_object_fields( 'comment' ), $pod->fields(), $pod, array() );
+
+                if ( false === $validate )
+                    $validate = sprintf( __( 'There was an issue validating the field %s', 'pods' ), $field[ 'label' ] );
+
+                if ( !is_bool( $validate ) && !empty( $validate ) )
+                    return pods_error( $validate, $this );
+            }
+        }
+
+        return $approved;
+    }
+
+    /**
      * @param $comment_id
      */
     public function save_comment ( $comment_id ) {
         $groups = $this->groups_get( 'comment', 'comment' );
 
         if ( empty( $groups ) )
-            return;
+            return $comment_id;
 
         $data = array();
 
@@ -1179,6 +1406,8 @@ class PodsMeta {
         }
 
         do_action( 'pods_meta_save_comment', $data, $pod, $id, $groups );
+
+        return $comment_id;
     }
 
     /**
@@ -1666,6 +1895,6 @@ class PodsMeta {
             'id' => $id
         );
 
-        return pods_api()->delete_pod_item( $params, false );
+        return $this->api->delete_pod_item( $params, false );
     }
 }

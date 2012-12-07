@@ -430,7 +430,7 @@ class Pods {
 
         $value = null;
 
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
         $params->traverse = array();
 
@@ -651,7 +651,7 @@ class Pods {
                             $object_type = $last_object;
                             $object = $last_pick_val;
 
-                            if ( 'file' == $last_type ) {
+                            if ( in_array( $last_type, apply_filters( 'pods_file_field_types', array( 'file', 'avatar' ) ) ) ) {
                                 $object_type = 'media';
                                 $object = 'attachment';
                             }
@@ -660,17 +660,12 @@ class Pods {
 
                             $table = $this->api->get_table_info( $object_type, $object );
 
-                            $join = $where = '';
+                            $join = $where = array();
 
-                            if ( !empty( $table[ 'join' ] ) ) {
+                            if ( !empty( $table[ 'join' ] ) )
                                 $join = (array) $table[ 'join' ];
 
-                                $join = implode( ' ', $join );
-                            }
-
                             if ( !empty( $table[ 'where' ] ) || !empty( $ids ) ) {
-                                $where = array();
-
                                 foreach ( $ids as $id ) {
                                     $where[ $id ] = '`t`.`' . $table[ 'field_id' ] . '` = ' . (int) $id;
                                 }
@@ -680,22 +675,18 @@ class Pods {
 
                                 if ( !empty( $table[ 'where' ] ) )
                                     $where = array_merge( $where, (array) $table[ 'where' ] );
-
-                                $where = trim( implode( ' AND ', $where ) );
-
-                                if ( !empty( $where ) )
-                                    $where = "WHERE {$where}";
                             }
 
                             if ( !empty( $table[ 'table' ] ) ) {
-                                $sql = "
-                                    SELECT *, `t`.`" . $table[ 'field_id' ] . "` AS `pod_item_id`
-                                    FROM `" . $table[ 'table' ] . "` AS `t`
-                                    {$join}
-                                    {$where}
-                                ";
+                                $sql = array(
+                                    'select' => '*, `t`.`' . $table[ 'field_id' ] . '` AS `pod_item_id`',
+                                    'table' => $table[ 'table' ],
+                                    'join' => $join,
+                                    'where' => $where
+                                );
 
-                                $item_data = pods_query( $sql );
+                                $item_data = pods_data()->select( $sql );
+
                                 $items = array();
 
                                 foreach ( $item_data as $item ) {
@@ -886,7 +877,7 @@ class Pods {
      * @link http://podsframework.org/docs/find/
      */
     public function find ( $params = null, $limit = 15, $where = null, $sql = null ) {
-        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file' ) );
+        $tableless_field_types = apply_filters( 'pods_tableless_field_types', array( 'pick', 'file', 'avatar' ) );
 
         $select = '`t`.*';
         $pod_table_prefix = 't';
@@ -1478,7 +1469,9 @@ class Pods {
             'total_found' => $this->total_found(),
             'page_var' => $this->page_var,
             'base' => "{$url}{$append}%_%",
-            'format' => "{$this->page_var}=%#%"
+            'format' => "{$this->page_var}=%#%",
+            'class' => "",
+            'link_class'
         );
 
         $params = (object) array_merge( $defaults, $params );

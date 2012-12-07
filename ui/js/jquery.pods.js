@@ -28,26 +28,37 @@
 
                     var valid_field = true;
 
-                    if ( $el.is( 'input[type=checkbox]' ) ) {
-                        if ( !$el.is( ':checked' ) && !$el.hasClass( 'pods-form-ui-field-type-pick' ) )
-                            valid_field = false;
+                    if ( $el.is( 'input[type=checkbox]' ) && !($el.is( ':checked' )) ) {
+                        valid_field = false;
+
+                        // extra check for relationship checkboxes to see if siblings are checked
+                        if ( $el.hasClass( 'pods-form-ui-field-type-pick' ) ) {
+                            $el.closest( '.pods-pick-checkbox' ).find( 'input[type=checkbox]' ).each( function () {
+                                if ( $( this ).is( ':checked' ) ) {
+                                    valid_field = true;
+                                }
+                            } )
+
+                        }
+
                     }
                     else if ( '' == $el.val() )
                         valid_field = false;
 
-                    if ( !valid_field && ( !$el.is( 'input[type=checkbox]' ) || !$el.hasClass( 'pods-form-ui-field-type-pick' ) ) ) {
+                    if ( !valid_field ) {
                         if ( -1 == pods_form_field_names.indexOf( $el.prop( 'name' ) ) ) {
-                            $el.parent().append( '<div class="pods-validate-error-message">' + label.replace( /(<([^>]+)>)/ig, '' ) + ' is required.</div>' );
+                            $el.closest( '.pods-field-input' ).find( '.pods-validate-error-message' ).remove();
+                            $el.closest( '.pods-field-input' ).append( '<div class="pods-validate-error-message">' + label.replace( /(<([^>]+)>)/ig, '' ) + ' is required.</div>' );
                             $el.addClass( 'pods-validate-error' );
 
                             pods_form_field_names.push( $el.prop( 'name' ) );
                         }
                     }
                     else {
-                        $el.parent().find( '.pods-validate-error-message' ).remove();
+                        $el.closest( '.pods-field-input' ).find( '.pods-validate-error-message' ).remove();
                         $el.removeClass( 'pods-validate-error' );
 
-                        if ( 0 < pods_form_field_names.indexOf( $el.prop( 'name' ) ) )
+                        if ( 0 <= pods_form_field_names.indexOf( $el.prop( 'name' ) ) )
                             pods_form_field_names.splice( pods_form_field_names.indexOf( $el.prop( 'name' ) ), 1 );
                     }
                 } );
@@ -277,7 +288,7 @@
                     if ( $sluggable.find( '.pods-slug-edit input[type=text]' )[ 0 ] ) {
                         last_slug = $sluggable.find( '.pods-slug-edit input[type=text]' ).val();
 
-                        last_slug = last_slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z ])/g, '' );
+                        last_slug = last_slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z\_\- ])/g, '' );
 
                         $( '.pods-slugged-lower:not(.pods-slugged[data-sluggable])' ).html( last_slug.toLowerCase() );
                         $( '.pods-slugged:not(.pods-slugged[data-sluggable])' ).html( last_slug.charAt( 0 ).toUpperCase() + last_slug.slice( 1 ) );
@@ -302,7 +313,7 @@
 
                         last_slug = $( this ).parent().find( 'input[type=text]' ).val();
 
-                        last_slug = last_slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z ])/g, '' );
+                        last_slug = last_slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z\_\- ])/g, '' );
 
                         $( this ).closest( '.pods-sluggable' ).find( '.pods-slug em' ).html( last_slug );
                         $( '.pods-slugged-lower:not(.pods-slugged[data-sluggable])' ).html( last_slug.toLowerCase() );
@@ -350,7 +361,7 @@
                         if ( 0 < $( this ).val().length ) {
                             var slug = $( this ).val();
 
-                            slug = slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z ])/g, '' );
+                            slug = slug.replace( /<(?:.)*?>/g, '' ).replace( /([^0-9a-zA-Z\_\- ])/g, '' );
 
                             // update fields
                            $( 'input.pods-slugged[data-sluggable="' + $( this ).prop( 'name' ).replace( '[', '\\[' ).replace( ']', '\\]' ) + '"]' ).each( function () {
@@ -1394,6 +1405,10 @@
                         if ( pods_changed )
                             return 'Navigating away from this page will discard any changes you have made.';
                     }
+                } );
+
+                $( 'form.pods-submittable' ).on( 'click', '.submitdelete', function () {
+                    pods_changed = false;
                 } );
             },
             qtip: function(element) {
