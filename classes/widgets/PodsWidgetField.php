@@ -10,7 +10,7 @@ class PodsWidgetField extends WP_Widget {
     public function PodsWidgetField () {
         $this->WP_Widget(
             'pods_widget_field',
-            'Pods Field Value',
+            'Pods - Field Value',
             array( 'classname' => 'pods_widget_field', 'description' => "Display a single Pod item's field value" ),
             array( 'width' => 200 )
         );
@@ -43,10 +43,10 @@ class PodsWidgetField extends WP_Widget {
      */
     public function update ( $new_instance, $old_instance ) {
         $instance = $old_instance;
-        $instance[ 'title' ] = pods_var( 'title', $new_instance, '' );
-        $instance[ 'pod_type' ] = pods_var( 'pod_type', $new_instance, '' );
-        $instance[ 'slug' ] = pods_var( 'slug', $new_instance, '' );
-        $instance[ 'field' ] = pods_var( 'field', $new_instance, '' );
+        $instance[ 'title' ] = pods_var_raw( 'title', $new_instance, '' );
+        $instance[ 'pod_type' ] = pods_var_raw( 'pod_type', $new_instance, '' );
+        $instance[ 'slug' ] = pods_var_raw( 'slug', $new_instance, '' );
+        $instance[ 'field' ] = pods_var_raw( 'field', $new_instance, '' );
 
         return $instance;
     }

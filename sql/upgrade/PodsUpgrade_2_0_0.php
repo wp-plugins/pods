@@ -10,12 +10,6 @@ class PodsUpgrade_2_0_0 extends PodsUpgrade {
     protected $version = '2.0.0';
 
     /**
-     *
-     */
-    function __construct () {
-    }
-
-    /**
      * @return array|bool|int|mixed|null|void
      */
     public function prepare_pods () {
@@ -396,7 +390,7 @@ class PodsUpgrade_2_0_0 extends PodsUpgrade {
 
                         $field_params[ 'options' ][ 'pick_filter' ] = $row->pick_filter;
                         $field_params[ 'options' ][ 'pick_orderby' ] = $row->pick_orderby;
-                        $field_params[ 'options' ][ 'pick_display' ] = '{@name}';
+                        $field_params[ 'options' ][ 'pick_display' ] = '';
                         $field_params[ 'options' ][ 'pick_size' ] = 'medium';
 
                         if ( 1 == $row->multiple ) {

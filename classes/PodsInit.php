@@ -35,6 +35,11 @@ class PodsInit {
     static $version_last;
 
     /**
+     * @var mixed|void
+     */
+    static $db_version;
+
+    /**
      * Upgrades to trigger (last installed version => upgrade version)
      *
      * @var array
@@ -43,6 +48,13 @@ class PodsInit {
         '1.0.0' => '2.0.0'
         //'2.0.0' => '2.1.0'
     );
+
+    /**
+     * Whether an Upgrade for 1.x has happened
+     *
+     * @var bool
+     */
+    static $upgraded;
 
     /**
      * Whether an Upgrade is needed
@@ -57,9 +69,11 @@ class PodsInit {
      * @license http://www.gnu.org/licenses/gpl-2.0.html
      * @since 1.8.9
      */
-    function __construct() {
+    function __construct () {
         self::$version = get_option( 'pods_framework_version' );
         self::$version_last = get_option( 'pods_framework_version_last' );
+        self::$db_version = get_option( 'pods_framework_db_version' );
+        self::$upgraded = get_option( 'pods_framework_upgraded_1_x' );
 
         if ( !empty( self::$version ) ) {
             self::$upgrade_needed = false;
@@ -68,12 +82,27 @@ class PodsInit {
                 /*if ( '2.1.0' == $new_version && ( !defined( 'PODS_DEVELOPER' ) || PODS_DEVELOPER ) )
                     continue;*/
 
-                if ( version_compare( $old_version, self::$version, '<=' ) && version_compare( self::$version, $new_version, '<' ) )
-                    self::$upgrade_needed = true;
+							if ( version_compare( self::$version_last, $old_version, '>=' )
+								&& version_compare( self::$version_last, $new_version, '<' )
+								&& version_compare( self::$version, $new_version, '>=' )
+								&& 1 != self::$upgraded )
+								self::$upgrade_needed = true;
             }
         }
-        elseif ( 0 < strlen( get_option( 'pods_version' ) ) )
+        elseif ( 0 < strlen( get_option( 'pods_version' ) ) ) {
             self::$upgrade_needed = true;
+
+            $old_version = get_option( 'pods_version' );
+
+            if ( !empty( $old_version ) ) {
+                if ( false === strpos( $old_version, '.' ) )
+                    $old_version = pods_version_to_point( $old_version );
+
+                update_option( 'pods_framework_version_last', $old_version );
+
+                self::$version_last = $old_version;
+            }
+        }
 
         add_action( 'plugins_loaded', array( $this, 'plugins_loaded' ) );
 
@@ -111,7 +140,7 @@ class PodsInit {
         if ( !defined( 'PODS_TABLELESS' ) )
             define( 'PODS_TABLELESS', false );
 
-        load_plugin_textdomain( 'pods', false, dirname( PODS_DIR . 'init.php' ) . '/languages/' );
+        load_plugin_textdomain( 'pods', false, dirname( plugin_basename( PODS_DIR . 'init.php' ) ) . '/languages/' );
     }
 
     /**
@@ -195,7 +224,7 @@ class PodsInit {
         wp_register_script( 'pods-codemirror-loadmode', PODS_URL . 'ui/js/codemirror/utils/loadmode.js', array( 'pods-codemirror' ), '2.33', true );
 
         if ( !wp_style_is( 'jquery-ui-timepicker', 'registered' ) )
-            wp_register_style( 'jquery-ui-timepicker', PODS_URL . 'ui/css/jquery.ui.timepicker.css', array(), '1.0.1' );
+            wp_register_style( 'jquery-ui-timepicker', PODS_URL . 'ui/css/jquery.ui.timepicker.css', array(), '1.1.1' );
 
         if ( !wp_script_is( 'jquery-ui-timepicker', 'registered' ) ) {
             wp_register_script( 'jquery-ui-timepicker', PODS_URL . 'ui/js/jquery.ui.timepicker.min.js', array(
@@ -203,7 +232,7 @@ class PodsInit {
                 'jquery-ui-core',
                 'jquery-ui-datepicker',
                 'jquery-ui-slider'
-            ), '1.0.1' );
+            ), '1.1.1' );
         }
 
         wp_register_style( 'pods-attach', PODS_URL . 'ui/css/jquery.pods.attach.css', array(), PODS_VERSION );
@@ -267,8 +296,6 @@ class PodsInit {
      * Register Post Types and Taxonomies
      */
     public function setup_content_types () {
-        global $wp_version;
-
         $post_types = PodsMeta::$post_types;
         $taxonomies = PodsMeta::$taxonomies;
 
@@ -301,6 +328,7 @@ class PodsInit {
                 $cpt_label = esc_html( pods_var_raw( 'label', $post_type, ucwords( str_replace( '_', ' ', pods_var_raw( 'name', $post_type ) ) ), null, true ) );
                 $cpt_singular = esc_html( pods_var_raw( 'label_singular', $post_type, ucwords( str_replace( '_', ' ', pods_var_raw( 'label', $post_type, pods_var( 'name', $post_type ), null, true ) ) ), null, true ) );
 
+                $cpt_labels = array();
                 $cpt_labels[ 'name' ] = $cpt_label;
                 $cpt_labels[ 'singular_name' ] = $cpt_singular;
                 $cpt_labels[ 'menu_name' ] = pods_var_raw( 'label_menu_name', $post_type, '', null, true );
@@ -341,7 +369,7 @@ class PodsInit {
                         $cpt_supports[] = $cpt_support;
                 }
 
-                if ( 1 == count( $cpt_supports ) && version_compare( '3.5-alpha', $wp_version, '<' ) )
+                if ( 1 == count( $cpt_supports ) && pods_wp_version( '3.5' ) )
                     $cpt_supports = false;
 
                 // Rewrite
@@ -427,6 +455,7 @@ class PodsInit {
                 $ct_label = esc_html( pods_var_raw( 'label', $taxonomy, ucwords( str_replace( '_', ' ', pods_var_raw( 'name', $taxonomy ) ) ), null, true ) );
                 $ct_singular = esc_html( pods_var_raw( 'label_singular', $taxonomy, ucwords( str_replace( '_', ' ', pods_var_raw( 'label', $taxonomy, pods_var_raw( 'name', $taxonomy ), null, true ) ) ), null, true ) );
 
+                $ct_labels = array();
                 $ct_labels[ 'name' ] = $ct_label;
                 $ct_labels[ 'singular_name' ] = $ct_singular;
                 $ct_labels[ 'menu_name' ] = pods_var_raw( 'label_menu_name', $taxonomy, '', null, true );
@@ -466,11 +495,12 @@ class PodsInit {
                     'update_count_callback' => pods_var( 'update_count_callback', $taxonomy, null, null, true ),
                     'query_var' => ( false !== (boolean) pods_var( 'query_var', $taxonomy, true ) ? pods_var( 'query_var_string', $taxonomy, pods_var( 'name', $taxonomy ), null, true ) : false ),
                     'rewrite' => $ct_rewrite,
+                    'show_admin_column' => (boolean) pods_var( 'show_admin_column', $taxonomy, false ),
                     'sort' => (boolean) pods_var( 'sort', $taxonomy, false )
                 );
 
                 if ( is_array( $ct_rewrite ) && !$pods_taxonomies[ pods_var( 'name', $taxonomy ) ][ 'query_var' ] )
-                    $pods_taxonomies[ pods_var( 'name', $taxonomy ) ] = pods_var( 'query_var_string', $taxonomy, pods_var( 'name', $taxonomy ), null, true );
+                    $pods_taxonomies[ pods_var( 'name', $taxonomy ) ] ['query_var'] = pods_var( 'query_var_string', $taxonomy, pods_var( 'name', $taxonomy ), null, true );
 
                 // Post Types
                 $ct_post_types = array();
@@ -504,6 +534,7 @@ class PodsInit {
 
             foreach ( $pods_taxonomies as $taxonomy => $options ) {
                 $ct_post_types = null;
+
                 if ( isset( $supported_post_types[ $taxonomy ] ) && !empty( $supported_post_types[ $taxonomy ] ) )
                     $ct_post_types = $supported_post_types[ $taxonomy ];
 
@@ -775,6 +806,7 @@ class PodsInit {
         }
 
         update_option( 'pods_framework_version', PODS_VERSION );
+        update_option( 'pods_framework_db_version', PODS_DB_VERSION );
 
         pods_api()->cache_flush_pods();
 
@@ -842,9 +874,14 @@ class PodsInit {
             " );
 
         delete_option( 'pods_framework_version' );
-
+        delete_option( 'pods_framework_db_version' );
         delete_option( 'pods_framework_upgrade_2_0' );
         delete_option( 'pods_framework_upgraded_1_x' );
+
+        // @todo Make sure all entries are being cleaned and do something about the pods_framework_upgrade_{version} dynamic entries created by PodsUpgrade
+        delete_option( 'pods_framework_upgrade_2_0_0' );
+        delete_option( 'pods_framework_upgrade_2_0_sister_ids' );
+        delete_option( 'pods_framework_version_last' );
 
         delete_option( 'pods_component_settings' );
 
@@ -875,7 +912,8 @@ class PodsInit {
 
         if ( !defined( 'PODS_TABLELESS' ) || !PODS_TABLELESS ) {
             $sql = "
-                DELETE `rel` FROM `@wp_podsrel` AS `rel`
+                DELETE `rel`
+                FROM `@wp_podsrel` AS `rel`
                 LEFT JOIN `{$wpdb->posts}` AS `p`
                     ON
                         `p`.`post_type` = '_pods_field'
@@ -901,7 +939,6 @@ class PodsInit {
                 LEFT JOIN `{$wpdb->posts}` AS `p`
                     ON
                         `p`.`post_type` = '_pods_field'
-                        AND ( `p`.`ID` = `rel`.`field_id` OR `p`.`ID` = `rel`.`related_field_id` )
                 LEFT JOIN `{$wpdb->postmeta}` AS `pm`
                     ON
                         `pm`.`post_id` = `p`.`ID`
@@ -924,7 +961,6 @@ class PodsInit {
                 LEFT JOIN `{$wpdb->posts}` AS `p`
                     ON
                         `p`.`post_type` = '_pods_field'
-                        AND ( `p`.`ID` = `rel`.`field_id` OR `p`.`ID` = `rel`.`related_field_id` )
                 LEFT JOIN `{$wpdb->postmeta}` AS `pm`
                     ON
                         `pm`.`post_id` = `p`.`ID`
@@ -947,7 +983,6 @@ class PodsInit {
                 LEFT JOIN `{$wpdb->posts}` AS `p`
                     ON
                         `p`.`post_type` = '_pods_field'
-                        AND ( `p`.`ID` = `rel`.`field_id` OR `p`.`ID` = `rel`.`related_field_id` )
                 LEFT JOIN `{$wpdb->postmeta}` AS `pm`
                     ON
                         `pm`.`post_id` = `p`.`ID`

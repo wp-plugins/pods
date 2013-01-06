@@ -125,7 +125,7 @@ class PodsMeta {
         }
 
         if ( !empty( self::$media ) ) {
-            if ( pods_wp_version( '3.5-alpha' ) ) {
+            if ( pods_wp_version( '3.5' ) ) {
                 add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
                 add_action( 'wp_ajax_save-attachment-compat', array( $this, 'save_media_ajax' ), 0 );
             }
@@ -274,15 +274,17 @@ class PodsMeta {
         // Add Pods fields
         if ( !empty( $pod ) && $object_type == $pod[ 'type' ] ) {
             foreach ( $pod[ 'fields' ] as $field => $field_data ) {
-                if ( !in_array( $field, $meta_fields ) )
+                if ( is_array( $meta_fields ) && !in_array( $field, $meta_fields ) )
                     $meta_fields[] = $field;
             }
         }
 
         // Remove internal Pods fields
-        foreach ( $meta_fields as $field => $meta_field ) {
-            if ( 0 === strpos( $meta_field, '_pods_' ) )
-                unset( $meta_fields[ $meta_field ] );
+        if ( is_array( $meta_fields ) ) {
+            foreach ( $meta_fields as $meta_field ) {
+                if ( 0 === strpos( $meta_field, '_pods_' ) )
+                    unset( $meta_fields[ $meta_field ] );
+            }
         }
 
         return $meta_fields;
@@ -294,6 +296,8 @@ class PodsMeta {
             if ( 0 === strpos( $post_type, '_pods_' ) || 0 === strpos( $post_type_name, '_pods_' ) )
                 unset( $post_types[ $post_type ] );
         }
+
+        return $post_types;
     }
 
     /**
@@ -431,7 +435,7 @@ class PodsMeta {
         }
         elseif ( 'media' == $pod[ 'type' ] ) {
             if ( !has_filter( 'wp_update_attachment_metadata', array( $this, 'save_media' ), 10, 2 ) ) {
-                if ( pods_wp_version( '3.5-alpha' ) ) {
+                if ( pods_wp_version( '3.5' ) ) {
                     add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
                     add_action( 'wp_ajax_save-attachment-compat', array( $this, 'save_media_ajax' ), 0 );
                 }
@@ -647,6 +651,9 @@ class PodsMeta {
         }
         ?>
     </table>
+
+    <input type="hidden" name="pods_meta_save" value="1" />
+
     <script type="text/javascript">
         jQuery( function ( $ ) {
             $( document ).Pods( 'dependency', true );
@@ -670,14 +677,17 @@ class PodsMeta {
 
         $blacklisted_types = apply_filters( 'pods_meta_save_post_blacklist_types', $blacklisted_types, $post_id, $post );
 
+        if ( empty( $_POST ) || 1 != pods_var( 'pods_meta_save', 'post' ) )
+            return $post_id;
+
         // @todo Figure out how to hook into autosave for saving meta
 
         // Block Autosave and Revisions
         if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || in_array( $post->post_type, $blacklisted_types ) )
             return $post_id;
 
-        // Block Quick Edits
-        if ( 'inline-save' == pods_var( 'action', 'post' ) )
+        // Block Quick Edits / Bulk Edits
+        if ( 'edit.php' == pods_var( 'pagenow', 'global' ) && ( 'inline-save' == pods_var( 'action', 'post' ) || null != pods_var( 'bulk_edit', 'get' ) || is_array( pods_var( 'post', 'get' ) ) ) )
             return $post_id;
 
         // Block Trash
@@ -699,9 +709,6 @@ class PodsMeta {
 
         if ( empty( $groups ) )
             return $post_id;
-
-        // Infinite loop fix
-        remove_action( current_filter(), array( $this, __FUNCTION__ ), 10, 2 );
 
         $data = array();
 
@@ -729,6 +736,8 @@ class PodsMeta {
         do_action( 'pods_meta_save_pre_post', $data, $pod, $id, $groups, $post, $post->post_type );
         do_action( "pods_meta_save_pre_post_{$post->post_type}", $data, $pod, $id, $groups, $post );
 
+        pods_no_conflict_on( 'post' );
+
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
             $data = stripslashes_deep( $data );
@@ -736,14 +745,12 @@ class PodsMeta {
             $pod->save( $data );
         }
         elseif ( !empty( $id ) ) {
-            pods_no_conflict_on( 'post' );
-
             foreach ( $data as $field => $value ) {
                 update_post_meta( $id, $field, $value );
             }
-
-            pods_no_conflict_off( 'post' );
         }
+
+        pods_no_conflict_off( 'post' );
 
         do_action( 'pods_meta_save_post', $data, $pod, $id, $groups, $post, $post->post_type );
         do_action( "pods_meta_save_post_{$post->post_type}", $data, $pod, $id, $groups, $post );

@@ -208,7 +208,7 @@ class Pods_Templates extends PodsComponent {
             if ( is_object( $id ) ) {
                 $old_post = $id;
 
-                pods_transient_clear( 'pods_object_template_' . $old_post->post_title );
+                pods_transient_clear( 'pods_object_template_' . $old_post->post_name );
             }
         }
 
@@ -216,7 +216,7 @@ class Pods_Templates extends PodsComponent {
             return;
 
         pods_transient_clear( 'pods_object_template' );
-        pods_transient_clear( 'pods_object_template_' . $post->post_title );
+        pods_transient_clear( 'pods_object_template_' . $post->post_name );
     }
 
     /**
@@ -397,7 +397,7 @@ class Pods_Templates extends PodsComponent {
         }
 
         $code = apply_filters( 'pods_templates_pre_template', $code, $template, $obj );
-        $code = apply_filters( "pods_templates_pre_template_{$template}", $code, $template, $obj );
+        $code = apply_filters( 'pods_templates_pre_template_' . $template[ 'slug' ], $code, $template, $obj );
 
         ob_start();
 
@@ -415,7 +415,7 @@ class Pods_Templates extends PodsComponent {
         $out = ob_get_clean();
 
         $out = apply_filters( 'pods_templates_post_template', $out, $code, $template, $obj );
-        $out = apply_filters( "pods_templates_post_template_{$template}", $out, $code, $template, $obj );
+        $out = apply_filters( 'pods_templates_post_template_' . $template[ 'slug' ], $out, $code, $template, $obj );
 
         return $out;
     }
