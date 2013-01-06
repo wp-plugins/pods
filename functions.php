@@ -1319,6 +1319,7 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
 
     $last = '';
 
+		$original_value = $value;
     if ( !empty( $value ) )
         $last = array_pop( $value );
 
@@ -1337,8 +1338,8 @@ function pods_serial_comma ( $value, $field = null, $fields = null ) {
     }
 
     if ( !empty( $value ) ) {
-        if ( null !== $field_index && isset( $value[ $field_index ] ) )
-            return $value[ $field_index ];
+        if ( null !== $field_index && isset( $original_value[ $field_index ] ) )
+            return $original_value[ $field_index ];
 
         if ( 1 == count( $value ) ) {
             if ( isset( $value[ 0 ] ) )
@@ -1956,6 +1957,21 @@ function pods_admin () {
 }
 
 /**
+ * Include and Init the PodsMigrate class
+ *
+ * @see PodsMigrate
+ *
+ * @return PodsMigrate
+ *
+ * @since 2.2
+ */
+function pods_migrate () {
+    require_once( PODS_DIR . 'classes/PodsMigrate.php' );
+
+    return new PodsMigrate();
+}
+
+/**
  * Include and Init the PodsUpgrade class
  *
  * @param string $version Version number of upgrade to get
@@ -1967,6 +1983,8 @@ function pods_admin () {
  * @since 2.1.0
  */
 function pods_upgrade ( $version = '' ) {
+		include_once PODS_DIR . 'sql/upgrade/PodsUpgrade.php';
+
     $class_name = str_replace( '.', '_', $version );
     $class_name = "PodsUpgrade_{$class_name}";
 
