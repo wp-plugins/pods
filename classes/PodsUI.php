@@ -65,6 +65,7 @@ class PodsUI {
         'limit',
         'action',
         'action_bulk',
+        'action_bulk_ids',
         'view',
         'export',
         'export_type',
@@ -317,6 +318,11 @@ class PodsUI {
      * @var string
      */
     public $action_bulk = false;
+
+    /**
+     * @var array
+     */
+    public $bulk = array();
 
     /**
      * @var array
@@ -749,6 +755,7 @@ class PodsUI {
         $options->validate( 'action', pods_var( 'action' . $options->num, 'get', $this->action, null, true ), 'in_array', $this->actions );
         $options->validate( 'actions_bulk', $this->actions_bulk, 'array_merge' );
         $options->validate( 'action_bulk', pods_var( 'action_bulk' . $options->num, 'get', $this->action_bulk, null, true ), 'isset', $this->actions_bulk );
+        $options->validate( 'bulk', pods_var( 'action_bulk_ids' . $options->num, 'get', array(), null, true ), 'array_merge', $this->bulk );
 
         $options->validate( 'views', $this->views, 'array' );
         $options->validate( 'view', pods_var( 'view' . $options->num, 'get', $this->view, null, true ), 'isset', $this->views );
@@ -774,31 +781,20 @@ class PodsUI {
         }
         $options->validate( 'sql', $this->sql, 'array_merge' );
 
-        $options->validate( 'sortable', $this->sortable, 'boolean' );
+        $options->validate( 'orderby_dir', strtoupper( pods_var_raw( 'orderby_dir' . $options[ 'num' ], 'get', $this->orderby_dir, null, true ) ), 'in_array', array( 'ASC', 'DESC' ) );
 
-        // Handle Sorting
-        $orderby_dir = pods_var_raw( 'orderby_dir' . $options->num, 'get', $this->orderby_dir, null, true );
-
-        if ( 'asc' == strtolower( $orderby_dir ) )
-            $orderby_dir = 'ASC';
-        else
-            $orderby_dir = 'DESC';
-        $options->orderby_dir = $orderby_dir;
-
-        $orderby = pods_var_raw( 'orderby', 'get', $this->orderby, null, true );
+        $orderby = pods_var_raw( 'orderby' . $options->num, 'get', $this->orderby, null, true );
 
         if ( !empty( $orderby ) ) {
             $orderby = array(
                 'default' => $orderby
             );
-
-            if ( !empty( $options->orderby ) )
-                $orderby = array_merge( $orderby, (array) $options->orderby );
         }
         else
-            $orderby = (array) $options->orderby;
+            $orderby = array();
 
-        $options->orderby = $orderby;
+        $options->validate( 'orderby', $orderby, 'array_merge' );
+        $options->validate( 'sortable', $this->sortable, 'boolean' );
 
         $options->validate( 'params', $this->params, 'array' );
 
@@ -1214,9 +1210,9 @@ class PodsUI {
         elseif ( 'view' == $this->action && !in_array( $this->action, $this->actions_disabled ) )
             $this->view();
         elseif ( isset( $this->actions_custom[ $this->action ] ) && is_callable( $this->actions_custom[ $this->action ] ) )
-            return call_user_func_array( $this->actions_custom[ $this->action ], array( &$this ) );
+            return call_user_func_array( $this->actions_custom[ $this->action ], array( &$this, $this->id ) );
         elseif ( isset( $this->actions_custom[ $this->action ] ) && ( is_array( $this->actions_custom[ $this->action ] ) && isset( $this->actions_custom[ $this->action ][ 'callback' ] ) && is_callable( $this->actions_custom[ $this->action ][ 'callback' ] ) ) )
-            return call_user_func_array( $this->actions_custom[ $this->action ][ 'callback' ], array( &$this ) );
+            return call_user_func_array( $this->actions_custom[ $this->action ][ 'callback' ], array( &$this, $this->id ) );
         elseif ( !in_array( 'manage', $this->actions_disabled ) )
             $this->manage();
 
@@ -1291,6 +1287,9 @@ class PodsUI {
 
             if ( !in_array( 'add', $this->actions_disabled ) && !in_array( 'add', $this->actions_hidden ) ) {
                 $link = pods_var_update( array( 'action' . $this->num => 'add', 'id' . $this->num => '' ), array( 'page' ), $this->exclusion() );
+
+                if ( !empty( $this->action_links[ 'add' ] ) )
+                    $link = $this->action_links[ 'add' ];
                 ?>
                 <a href="<?php echo $link; ?>" class="add-new-h2"><?php echo $this->heading[ 'add' ]; ?></a>
                 <?php
@@ -1370,7 +1369,8 @@ class PodsUI {
             }
         }
 
-        $fields = $this->fields[ $this->action ];
+        if ( isset( $this->fields[ $this->action ] ) )
+						$fields = $this->fields[ $this->action ];
 
         $object_fields = (array) pods_var_raw( 'object_fields', $this->pod->pod_data, array(), null, true );
 
@@ -1583,7 +1583,63 @@ class PodsUI {
             $this->message( __( "<strong>Deleted:</strong> {$this->item} has been deleted.", 'pods' ) );
         else
             $this->error( __( "<strong>Error:</strong> {$this->item} has not been deleted.", 'pods' ) );
+
         $this->do_hook( 'post_delete', $id );
+    }
+
+    /**
+     * @param null $id
+     *
+     * @return bool|mixed
+     */
+    public function delete_bulk () {
+        $this->do_hook( 'pre_delete_bulk' );
+
+        if ( 1 != pods_var( 'deleted_bulk', 'get', 0 ) ) {
+            $ids = $this->bulk;
+
+            $success = false;
+
+            if ( !empty( $ids ) ) {
+                foreach ( $ids as $id ) {
+                    $id = pods_absint( $id );
+
+                    if ( empty( $id ) )
+                        continue;
+
+                    if ( isset( $this->actions_custom[ 'delete' ] ) && is_callable( $this->actions_custom[ 'delete' ] ) ) {
+                        $check = call_user_func_array( $this->actions_custom[ 'delete' ], array( $id, &$this ) );
+
+                        if ( false !== $check )
+                            $check = true;
+                    }
+                    elseif ( is_object( $this->pod ) )
+                        $check = $this->pod->delete( $id );
+                    else
+                        $check = $this->pods_data->delete( $this->table, array( $this->data->field_id => $id ) );
+
+                    if ( $check )
+                        $success = true;
+                }
+            }
+
+            if ( $success )
+                pods_redirect( pods_var_update( array( 'action_bulk' => 'delete', 'deleted_bulk' => 1 ), array( 'page', 'lang', 'action', 'id' ) ) );
+            else
+                $this->error( __( "<strong>Error:</strong> {$this->item} has not been deleted.", 'pods' ) );
+        }
+        else {
+            $this->message( __( "<strong>Deleted:</strong> {$this->items} have been deleted.", 'pods' ) );
+
+            unset( $_GET[ 'deleted_bulk' ] );
+        }
+
+        $this->action_bulk = false;
+        unset( $_GET[ 'action_bulk' ] );
+
+        $this->do_hook( 'post_delete_bulk' );
+
+        $this->manage();
     }
 
     /**
@@ -1773,11 +1829,13 @@ class PodsUI {
         if ( isset( $this->actions_custom[ 'manage' ] ) && is_callable( $this->actions_custom[ 'manage' ] ) )
             return call_user_func_array( $this->actions_custom[ 'manage' ], array( $reorder, &$this ) );
 
-        if ( !empty( $this->action_bulk ) && !empty( $this->actions_bulk ) && isset( $this->actions_bulk[ $this->action_bulk ] ) ) {
+        if ( !empty( $this->action_bulk ) && !empty( $this->actions_bulk ) && isset( $this->actions_bulk[ $this->action_bulk ] ) && !in_array( $this->action_bulk, $this->actions_disabled ) ) {
             if ( is_callable( $this->actions_bulk[ $this->action_bulk ] ) )
-                return call_user_func_array( $this->actions_bulk[ $this->action_bulk ], array( &$this ) );
+                return call_user_func_array( $this->actions_bulk[ $this->action_bulk ], array( &$this, $this->bulk ) );
             elseif ( isset( $this->actions_bulk[ $this->action_bulk ][ 'callback' ] ) && is_callable( $this->actions_bulk[ $this->action_bulk ][ 'callback' ] ) )
-                return call_user_func_array( $this->actions_bulk[ $this->action_bulk ][ 'callback' ], array( &$this ) );
+                return call_user_func_array( $this->actions_bulk[ $this->action_bulk ][ 'callback' ], array( &$this, $this->bulk ) );
+            elseif ( 'delete' == $this->action_bulk )
+                return $this->delete_bulk();
         }
 
         $this->screen_meta();
@@ -1798,8 +1856,12 @@ class PodsUI {
             else
                 echo $this->header[ 'manage' ];
             if ( !in_array( 'add', $this->actions_disabled ) && !in_array( 'add', $this->actions_hidden ) ) {
+                $link = pods_var_update( array( 'action' . $this->num => 'add' ), array( 'page' ), $this->exclusion() );
+
+                if ( !empty( $this->action_links[ 'add' ] ) )
+                    $link = $this->action_links[ 'add' ];
                 ?>
-                <a href="<?php echo pods_var_update( array( 'action' . $this->num => 'add' ), array( 'page' ), $this->exclusion() ); ?>" class="add-new-h2"><?php echo $this->label[ 'add_new' ]; ?></a>
+                <a href="<?php echo $link; ?>" class="add-new-h2"><?php echo $this->label[ 'add_new' ]; ?></a>
                 <?php
             }
             if ( !in_array( 'reorder', $this->actions_disabled ) && !in_array( 'reorder', $this->actions_hidden ) && false !== $this->reorder[ 'on' ] ) {
@@ -1846,7 +1908,7 @@ class PodsUI {
 
                     foreach ( $this->filters as $filter ) {
                         // use PodsFormUI fields
-                        if ( !isset( $this->fields[ 'search' ][ $filter ] ) )
+                        if ( !isset( $this->pod->fields[ $filter ] ) )
                             continue;
 
                         if ( in_array( $this->pod->fields[ $filter ][ 'type' ], array( 'date', 'datetime', 'time' ) ) ) {
@@ -2142,7 +2204,7 @@ class PodsUI {
                             $value = pods_var_raw( 'filter_' . $filter, 'get', '', null, true );
                             $data_filter = 'filter_' . $filter;
 
-                            $start = $end = '';
+                            $start = $end = $value_label = '';
 
                             if ( in_array( $this->pod->fields[ $filter ][ 'type' ], array( 'date', 'datetime', 'time' ) ) ) {
                                 $start = pods_var_raw( 'filter_' . $filter . '_start', 'get', '', null, true );
@@ -2158,11 +2220,16 @@ class PodsUI {
 
                                 $data_filter = 'filter_' . $filter . '_start';
                             }
+                            elseif ( 'pick' == $this->pod->fields[ $filter ][ 'type' ] )
+                                $value_label = trim( PodsForm::field_method( 'pick', 'value_to_label', $this->pod->pod_data, $this->pod->fields[ $filter ], $value ) );
+
+                            if ( strlen( $value_label ) < 1 )
+                                $value_label = $value;
                     ?>
                         <li class="pods-ui-filter-bar-filter" data-filter="<?php echo $data_filter; ?>">
                             <a href="#TB_inline?width=640&inlineId=pods-ui-posts-filter-popup" class="thickbox" title="<?php esc_attr_e( 'Advanced Filters', 'pods' ); ?>">
                                 <strong><?php echo $this->pod->fields[ $filter ][ 'label' ]; ?>:</strong>
-                                <?php echo esc_html( $value ); ?>
+                                <?php echo esc_html( $value_label ); ?>
                             </a>
 
                             <a href="#remove-filter" class="remove-filter" title="<?php esc_attr_e( 'Remove Filter', 'pods' ); ?>">x</a>
@@ -2536,7 +2603,7 @@ class PodsUI {
                             <?php
                                 if ( !empty( $this->actions_bulk ) ) {
             ?>
-                                <th scope="row" class="check-column"><input type="checkbox" name="pods_bulk<?php echo $this->num; ?>[]" value="<?php echo $row[$this->sql['field_id']]; ?>"></th>
+                                <th scope="row" class="check-column"><input type="checkbox" name="action_bulk_ids<?php echo $this->num; ?>[]" value="<?php echo $row[$this->sql['field_id']]; ?>"></th>
             <?php
                                 }
 
@@ -2645,7 +2712,7 @@ class PodsUI {
                                         if ( is_array( $this->actions_custom ) ) {
                                             foreach ( $this->actions_custom as $custom_action => $custom_data ) {
                                                 if ( is_array( $custom_data ) && ( isset( $custom_data[ 'link' ] ) || isset( $custom_data[ 'callback' ] ) ) && !in_array( $custom_action, $this->actions_disabled ) && !in_array( $custom_action, $this->actions_hidden ) ) {
-                                                    if ( !in_array( $custom_action, array( 'add', 'view', 'edit', 'duplicate', 'delete', 'save', 'export', 'reorder' ) ) ) {
+                                                    if ( !in_array( $custom_action, array( 'add', 'view', 'edit', 'duplicate', 'delete', 'save', 'export', 'reorder', 'manage', 'table' ) ) ) {
                                                         if ( 'toggle' == $custom_action ) {
                                                             $toggle = true;
                                                             $toggle_labels = array(
@@ -2673,7 +2740,12 @@ class PodsUI {
                                                             $custom_data[ 'link' ] = pods_var_update( $vars );
                                                         }
 
-                                                        $actions[ $custom_action ] = '<span class="edit action-' . $custom_action . '"><a href="' . $this->do_template( $custom_data[ 'link' ], $row ) . '" title="' . esc_attr( $custom_data[ 'label' ] ) . ' this item">' . $custom_data[ 'label' ] . '</a></span>';
+                                                        $confirm = '';
+
+                                                        if ( isset( $custom_data[ 'confirm' ] ) )
+                                                            $confirm = ' onclick="if(confirm(\'' . $custom_data[ 'confirm' ] . '\')){return true;}return false;"';
+
+                                                        $actions[ $custom_action ] = '<span class="edit action-' . $custom_action . '"><a href="' . $this->do_template( $custom_data[ 'link' ], $row ) . '" title="' . esc_attr( $custom_data[ 'label' ] ) . ' this item"' . $confirm . '>' . $custom_data[ 'label' ] . '</a></span>';
                                                     }
                                                 }
                                             }

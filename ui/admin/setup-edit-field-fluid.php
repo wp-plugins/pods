@@ -27,7 +27,10 @@ $pick_object = trim( pods_var( 'pick_object', $field ) . '-' . pods_var( 'pick_v
             <span class="edit">
                 <a title="<?php esc_attr_e( 'Edit this field', 'pods' ); ?>" class="pods-manage-row-edit" href="#edit-field"><?php _e( 'Edit', 'pods' ); ?></a> |
             </span>
-            <span class="pods-manage-row-delete">
+            <span class="duplicate">
+                <a title="<?php esc_attr_e( 'Duplicate this field', 'pods' ); ?>" class="pods-manage-row-duplicate" href="#duplicate-field"><?php _e( 'Duplicate', 'pods' ); ?></a> |
+            </span>
+            <span class="trash pods-manage-row-delete">
                 <a class="submitdelete" title="<?php esc_attr_e( 'Delete this field', 'pods' ); ?>" href="#delete-field"><?php _e( 'Delete', 'pods' ); ?></a>
             </span>
         </div>
@@ -37,9 +40,9 @@ $pick_object = trim( pods_var( 'pick_object', $field ) . '-' . pods_var( 'pick_v
             <div class="pods-manage-field pods-dependency">
                 <div class="pods-tabbed">
                     <ul class="pods-tabs">
-                        <li class="pods-tab"><a href="#pods-basic-options-<?php echo $pods_i; ?>" class="selected"><?php _e( 'Basic', 'pods' ); ?></a></li>
-                        <li class="pods-tab pods-excludes-on pods-excludes-on-field-data-type pods-excludes-on-field-data-type-<?php echo implode( ' pods-excludes-on-field-data-type-', $no_advanced ); ?>"><a href="#pods-additional-field-options-<?php echo $pods_i; ?>"><?php _e( 'Additional Field Options', 'pods' ); ?></a></li>
-                        <li class="pods-tab"><a href="#pods-advanced-options-<?php echo $pods_i; ?>"><?php _e( 'Advanced', 'pods' ); ?></a></li>
+                        <li class="pods-tab"><a href="#pods-basic-options-<?php echo $pods_i; ?>" class="selected pods-tab-link"><?php _e( 'Basic', 'pods' ); ?></a></li>
+                        <li class="pods-tab pods-excludes-on pods-excludes-on-field-data-type pods-excludes-on-field-data-type-<?php echo implode( ' pods-excludes-on-field-data-type-', $no_advanced ); ?>"><a href="#pods-additional-field-options-<?php echo $pods_i; ?>" class="pods-tab-link"><?php _e( 'Additional Field Options', 'pods' ); ?></a></li>
+                        <li class="pods-tab"><a href="#pods-advanced-options-<?php echo $pods_i; ?>" class="pods-tab-link"><?php _e( 'Advanced', 'pods' ); ?></a></li>
                     </ul>
                     <div class="pods-tab-group">
                         <div id="pods-basic-options-<?php echo $pods_i; ?>" class="pods-tab pods-basic-options">

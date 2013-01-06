@@ -723,6 +723,14 @@ class Pods {
                                     $item_value = get_object_vars( (object) $item_value );
                                 }
 
+                                $object_type = $table[ 'type' ];
+
+                                if ( in_array( $table[ 'type' ], array( 'post_type', 'attachment' ) ) )
+                                    $object_type = 'post';
+
+                                if ( in_array( $object_type, array( 'post', 'user', 'comment' ) ) )
+                                    pods_no_conflict_on( $object_type );
+
                                 // Return entire array
                                 if ( false === $params->in_form && false !== $field_exists && in_array( $last_type, $tableless_field_types ) )
                                     $value = $data;
@@ -733,10 +741,16 @@ class Pods {
                                     if ( false !== $params->in_form )
                                         $field = $table[ 'field_id' ];
 
-                                    foreach ( $data as $item ) {
-                                        $value[] = $item[ $field ];
+                                    foreach ( $data as $item_id => $item ) {
+                                        if ( isset( $item[ $field ] ) )
+                                            $value[] = $item[ $field ];
+                                        elseif ( in_array( $object_type, array( 'post', 'user', 'comment' ) ) )
+                                            $value[] = get_metadata( $object_type, $item_id, $field, true );
                                     }
                                 }
+
+                                if ( in_array( $object_type, array( 'post', 'user', 'comment' ) ) )
+                                    pods_no_conflict_off( $object_type );
 
                                 // Handle Simple Relationships
                                 if ( $simple ) {
@@ -985,13 +999,13 @@ class Pods {
 
                         continue;
                     }
-
-                    $where[ 'compare' ] = strtotime( $where[ 'compare' ] );
+                    
+                    $where[ 'compare' ] = strtoupper( $where[ 'compare' ] );
 
                     if ( !in_array( $where[ 'compare' ], array( '=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ) ) )
                         $where[ 'compare' ] = '=';
 
-                    $where[ 'type' ] = strtotime( $where[ 'type' ] );
+                    $where[ 'type' ] = strtoupper( $where[ 'type' ] );
 
                     if ( !in_array( $where[ 'type' ], array( 'NUMERIC', 'BINARY', 'CHAR', 'DATE', 'DATETIME', 'DECIMAL', 'SIGNED', 'TIME', 'UNSIGNED' ) ) )
                         $where[ 'type' ] = 'CHAR';
@@ -1001,6 +1015,15 @@ class Pods {
                             $where[ 'compare' ] = 'NOT IN';
                         else
                             $where[ 'compare' ] = 'IN';
+                    }
+                    
+                    if ( is_array( $where[ 'value' ] ) ) {
+                        if ( in_array( $where[ 'compare' ], array( 'BETWEEN', 'NOT BETWEEN' ) ) )
+                            $where[ 'value' ] = '"' . implode( '" AND "', $where[ 'value' ] ) . '"';
+                        else
+                            $where[ 'value' ] = '( "' . implode( '", "', $where[ 'value' ] ) . '" )';
+                    } else {
+                        $where[ 'value' ] = '"' . (string) $where[ 'value' ] . '"';
                     }
 
                     $key = '';
@@ -1055,10 +1078,7 @@ class Pods {
 
                     $where_args = $where;
 
-                    if ( is_array( $where[ 'value' ] ) )
-                        $where = $where[ 'key' ] . ' ' . $where[ 'compare' ] . ' ( "' . implode( '", "', $where[ 'value' ] ) . '" )';
-                    else
-                        $where = $where[ 'key' ] . ' "' . (string) $where[ 'value' ] . '"';
+                    $where = $where[ 'key' ] . ' ' . $where[ 'compare' ] . ' ' . $where[ 'value' ];
 
                     $params->where[ $k ] = apply_filters( 'pods_find_where_query', $where, $where_args );
                 }
@@ -1308,7 +1328,11 @@ class Pods {
         if ( empty( $data ) )
             return false;
 
-        $params = array( 'pod' => $this->pod, 'data' => $data, 'allow_custom_fields' => true );
+        $params = array(
+            'pod' => $this->pod,
+            'data' => $data,
+            'allow_custom_fields' => true
+        );
 
         return $this->api->save_pod_item( $params );
     }
@@ -1342,7 +1366,12 @@ class Pods {
         if ( empty( $data ) )
             return false;
 
-        $params = array( 'pod' => $this->pod, 'id' => $id, 'data' => $data, 'allow_custom_fields' => true );
+        $params = array(
+            'pod' => $this->pod,
+            'id' => $id,
+            'data' => $data,
+            'allow_custom_fields' => true
+        );
 
         return $this->api->save_pod_item( $params );
     }
@@ -1368,9 +1397,34 @@ class Pods {
         if ( empty( $id ) )
             return false;
 
-        $params = array( 'pod' => $this->pod, 'id' => $id );
+        $params = array(
+            'pod' => $this->pod,
+            'id' => $id
+        );
 
         return $this->api->delete_pod_item( $params );
+    }
+
+    /**
+     * Reset Pod
+     *
+     * @see PodsAPI::reset_pod
+     *
+     * @return bool Whether the Pod was successfully reset
+     *
+     * @since 2.1.1
+     */
+    public function reset_pod () {
+        $params = array( 'id' => $this->pod_id );
+
+        $this->data->id = null;
+        $this->data->row = array();
+        $this->data->data = array();
+
+        $this->data->total = 0;
+        $this->data->total_found = 0;
+
+        return $this->api->reset_pod( $params );
     }
 
     /**
@@ -1394,7 +1448,10 @@ class Pods {
         if ( empty( $id ) )
             return false;
 
-        $params = array( 'pod' => $this->pod, 'id' => $id );
+        $params = array(
+            'pod' => $this->pod,
+            'id' => $id
+        );
 
         return $this->api->duplicate_pod_item( $params );
     }
@@ -1421,7 +1478,11 @@ class Pods {
         if ( empty( $id ) )
             return false;
 
-        $params = array( 'pod' => $this->pod, 'id' => $id, 'fields' => $fields );
+        $params = array(
+            'pod' => $this->pod,
+            'id' => $id,
+            'fields' => $fields
+        );
 
         return $this->api->export_pod_item( $params );
     }

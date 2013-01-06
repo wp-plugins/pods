@@ -84,7 +84,7 @@ class Pods_Migrate_Packages extends PodsComponent {
             $params = get_object_vars( $params );
             foreach ( $params as $k => $v ) {
                 if ( is_array( $v ) )
-                    $params[ $k ] = array_keys( $v );
+                    $params[ $k ] = array_keys( array_filter( $v ) );
             }
 
             $package = $this->export( $params );
@@ -232,7 +232,8 @@ class Pods_Migrate_Packages extends PodsComponent {
                                 $new_field[ 'name' ] .= '2';
 
                             if ( 'pick' == $field_type ) {
-                                $new_field[ 'pick_object' ] = 'pod-' . $field[ 'pickval' ];
+                                $new_field[ 'pick_object' ] = 'pod';
+                                $new_field[ 'pick_val' ] = $field[ 'pickval' ];
 
                                 if ( 'wp_user' == $field[ 'pickval' ] )
                                     $new_field[ 'pick_object' ] = 'user';
@@ -248,7 +249,7 @@ class Pods_Migrate_Packages extends PodsComponent {
 
                                 $new_field[ 'options' ][ 'pick_filter' ] = $field[ 'pick_filter' ];
                                 $new_field[ 'options' ][ 'pick_orderby' ] = $field[ 'pick_orderby' ];
-                                $new_field[ 'options' ][ 'pick_display' ] = '{@name}';
+                                $new_field[ 'options' ][ 'pick_display' ] = '';
                                 $new_field[ 'options' ][ 'pick_size' ] = 'medium';
 
                                 if ( 1 == $multiple ) {
@@ -347,6 +348,12 @@ class Pods_Migrate_Packages extends PodsComponent {
                 foreach ( $pod[ 'fields' ] as $k => $field ) {
                     if ( isset( $field[ 'id' ] ) )
                         unset( $pod[ 'fields' ][ $k ][ 'id' ] );
+
+                    if ( isset( $field[ 'pod_id' ] ) )
+                        unset( $pod[ 'fields' ][ $k ][ 'pod_id' ] );
+
+                    if ( isset( $field[ 'pod' ] ) )
+                        unset( $pod[ 'fields' ][ $k ][ 'pod' ] );
                 }
 
                 $api->save_pod( $pod );
@@ -569,7 +576,7 @@ class Pods_Migrate_Packages extends PodsComponent {
         if ( 1 == count( $export ) )
             return false;
 
-        $export = json_encode( $export );
+        $export = version_compare( PHP_VERSION, '5.4.0', '>=' ) ? json_encode( $export, JSON_UNESCAPED_UNICODE ) : json_encode( $export );
 
         return $export;
     }

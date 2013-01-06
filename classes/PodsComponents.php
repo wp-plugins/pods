@@ -173,6 +173,13 @@ class PodsComponents {
                     continue;
             }
 
+            if ( !empty( $this->components[ $component ][ 'ThemeDependency' ] ) ) {
+                $dependency = explode( '|', $this->components[ $component ][ 'ThemeDependency' ] );
+
+                if ( strtolower( $dependency[ 1 ] ) != strtolower( get_template() ) )
+                    continue;
+            }
+
             $component_data = $this->components[ $component ];
 
             $component_data[ 'File' ] = realpath( $this->components_dir . $component_data[ 'File' ] );
@@ -259,6 +266,7 @@ class PodsComponents {
                 'Class' => 'Class',
                 'Hide' => 'Hide',
                 'PluginDependency' => 'Plugin Dependency',
+                'ThemeDependency' => 'Theme Dependency',
                 'DeveloperMode' => 'Developer Mode',
                 'Capability' => 'Capability'
             );
@@ -361,7 +369,7 @@ class PodsComponents {
             }
         }
 
-        $settings = json_encode( $this->settings );
+        $settings = version_compare( PHP_VERSION, '5.4.0', '>=' ) ? json_encode( $this->settings, JSON_UNESCAPED_UNICODE ) : json_encode( $this->settings );
 
         update_option( 'pods_component_settings', $settings );
 
