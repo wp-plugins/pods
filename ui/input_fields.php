@@ -133,7 +133,7 @@ elseif ('desc' == $coltype) {
     if (is_admin()) {
         $coltype = 'desc_tinymce';
 
-        require_once(ABSPATH . '/wp-admin/includes/template.php');
+        require_once( ABSPATH . '/wp-admin/includes/template.php' );
 
         if (!function_exists('wp_editor') && (!isset($coltype_exists[$coltype]) || empty($coltype_exists[$coltype]))) {
             // New TinyMCE API by azaozz
