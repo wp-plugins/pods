@@ -30,6 +30,9 @@ jQuery(function() {
         jQuery(".rightside." + active_file + " .form").append('<div id="' + file_id + '" class="success"><div class="btn dropme"></div>' + file_name + '</div>');
         jQuery("#dialog").jqmHide();
     });
+    jQuery( '.button.fb_cxl' ).click( function () {
+        jQuery( "#dialog" ).jqmHide();
+    } );
 <?php
     }
 ?>
@@ -155,6 +158,7 @@ if (1 == $form_count && !(defined('PODS_DISABLE_FILE_BROWSER') && true === PODS_
 <div class="jqmWindow" id="dialog">
     <input type="text" id="file_search" value="" />
     <input type="button" class="button" value="Narrow results" onclick="fileBrowser()" />
+    <input type="button" class="button fb_cxl" value="Cancel" onclick="fileBrowser()" />
     <div class="filebox"></div>
     <div class='fb_preview'></div>
 </div>
