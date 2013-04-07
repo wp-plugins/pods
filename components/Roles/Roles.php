@@ -8,6 +8,8 @@
  *
  * Version: 1.0
  *
+ * Category: Tools
+ *
  * @package Pods\Components
  * @subpackage Roles
  */
@@ -17,7 +19,7 @@ class Pods_Roles extends PodsComponent {
     /**
      * Do things like register/enqueue scripts and stylesheets
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function __construct () {
         add_filter( 'pods_roles_get_capabilities', array( $this, 'remove_deprecated_capabilities' ) );
@@ -26,7 +28,7 @@ class Pods_Roles extends PodsComponent {
     /**
      * Enqueue styles
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function admin_assets () {
         wp_enqueue_style( 'pods-wizard' );
@@ -39,10 +41,14 @@ class Pods_Roles extends PodsComponent {
      * @param $component
      *
      * @return void
-     * @since 2.0.0
+     * @since 2.0
      */
     public function admin ( $options, $component ) {
         global $wp_roles;
+
+        // Hook into Gravity Forms roles (since it only adds filter if Members plugin itself is activated
+        if ( class_exists( 'RGForms' ) && !has_filter( 'members_get_capabilities', array( 'RGForms', 'members_get_capabilities' ) ) )
+            add_filter( 'members_get_capabilities', array( 'RGForms', 'members_get_capabilities' ) );
 
         $default_role = get_option( 'default_role' );
 
@@ -371,11 +377,9 @@ class Pods_Roles extends PodsComponent {
         $role_caps = array_unique( $role_caps );
 
         $plugin_caps = array(
-            'pods_roles_list',
             'pods_roles_add',
             'pods_roles_delete',
-            'pods_roles_edit',
-            'restrict_content'
+            'pods_roles_edit'
         );
 
         $capabilities = array_merge( $default_caps, $role_caps, $plugin_caps );

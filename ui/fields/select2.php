@@ -10,7 +10,7 @@ $attributes[ 'type' ] = 'hidden';
 $attributes[ 'value' ] = $value;
 $attributes[ 'data-field-type' ] = 'select2';
 $attributes[ 'tabindex' ] = 2;
-$attributes = PodsForm::merge_attributes( $attributes, $name, PodsForm::$field_type, $options );
+$attributes = PodsForm::merge_attributes( $attributes, $name, $form_field_type, $options );
 $attributes[ 'class' ] .= ' pods-form-ui-field-type-select2';
 
 $uri_hash = wp_create_nonce( 'pods_uri_' . $_SERVER[ 'REQUEST_URI' ] );
@@ -30,12 +30,12 @@ if ( 'multi' == pods_var( 'pick_format_type', $options ) && 1 != $pick_limit )
 $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true );
 ?>
 <div class="pods-select2">
-    <input<?php PodsForm::attributes( $attributes, $name, PodsForm::$field_type, $options ); ?> />
+    <input<?php PodsForm::attributes( $attributes, $name, $form_field_type, $options ); ?> />
 </div>
 
 <script type="text/javascript">
     jQuery( function ( $ ) {
-        if ( typeof pods_ajaxurl === "undefined" ) {
+        if ( 'undefined' == typeof pods_ajaxurl ) {
             var pods_ajaxurl = "<?php echo admin_url( 'admin-ajax.php?pods_ajax=1' ); ?>";
         }
 
@@ -58,6 +58,7 @@ $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true
                     echo implode( ",\n", $data );
                 }
             ?>};
+
         var $element = $('#<?php echo $attributes[ 'id' ] ?>' );
 
         $element.select2( {
@@ -158,20 +159,15 @@ $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true
                 minimumInputLength : 1
             <?php
                 }
-                else {
-            ?>
-                minimumInputLength : 0
-            <?php
-                }
             ?>
         } );
 
         <?php if ( 'multi' == pods_var( 'pick_format_type', $options ) && 1 != $pick_limit ) { ?>
-            $element.select2("container").find("ul.select2-choices").sortable({
+            $element.select2( 'container' ).find( 'ul.select2-choices' ).sortable( {
                 containment: 'parent',
-                start: function() { $element.select2("onSortStart"); },
-                update: function() { $element.select2("onSortEnd"); }
-            });
+                start: function() { $element.select2( 'onSortStart' ); },
+                update: function() { $element.select2( 'onSortEnd' ); }
+            } );
         <?php } ?>
     } );
 </script>

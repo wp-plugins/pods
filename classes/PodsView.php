@@ -7,10 +7,10 @@ class PodsView {
     /**
      * @var array $cache_modes Array of available cache modes
      */
-    static $cache_modes = array( 'transient', 'site-transient', 'cache' );
+    static $cache_modes = array( 'none', 'transient', 'site-transient', 'cache' );
 
     /**
-     *
+     * @return \PodsView
      */
     private function __construct () {
     }
@@ -25,7 +25,7 @@ class PodsView {
      *
      * @return bool|mixed|null|string|void
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public static function view ( $view, $data = null, $expires = false, $cache_mode = 'cache' ) {
         // Different $expires if user is anonymous or logged in or specific capability
@@ -36,6 +36,9 @@ class PodsView {
 
             $expires = pods_var_user( $anon, $user, $capability );
         }
+
+        if ( 'none' == $cache_mode )
+            $expires = false;
 
         if ( false !== $expires && empty( $expires ) )
             $expires = 0;
@@ -91,7 +94,7 @@ class PodsView {
      *
      * @return bool|mixed|null|void
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public static function get ( $key, $cache_mode = 'cache', $group = '' ) {
         $object_cache = false;
@@ -144,7 +147,7 @@ class PodsView {
      *
      * @return bool|mixed|null|string|void
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public static function set ( $key, $value, $expires = 0, $cache_mode = null, $group = '' ) {
         $object_cache = false;
@@ -196,7 +199,7 @@ class PodsView {
      *
      * @return bool
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public static function clear ( $key = true, $cache_mode = null, $group = '' ) {
         $object_cache = false;
@@ -265,6 +268,18 @@ class PodsView {
      * @return bool|mixed|string|void
      */
     private static function get_template_part ( $_view, $_data = null ) {
+        /* to be reviewed later, should have more checks and restrictions like a whitelist etc
+        if ( 0 === strpos( $_view, 'http://' ) || 0 === strpos( $_view, 'https://' ) ) {
+            $_view = apply_filters( 'pods_view_url_include', $_view );
+
+            if ( empty( $_view ) || ( defined( 'PODS_REMOTE_VIEWS' ) && PODS_REMOTE_VIEWS ) )
+                return '';
+
+            $response = wp_remote_get( $_view );
+
+            return wp_remote_retrieve_body( $response );
+        }*/
+
         $_view = self::locate_template( $_view );
 
         if ( empty( $_view ) )
@@ -312,23 +327,28 @@ class PodsView {
         }
 
         // Keep it safe
-        $_view = trim( str_replace( '../', '', (string) $_view ) );
+        $_view = trim( str_replace( array( '../', '\\' ), array( '', '/' ), (string) $_view ) );
+        $_view = preg_replace( '/\/+/', '/', $_view );
+
+        $_real_view = realpath( $_view );
 
         $located = false;
 
         if ( empty( $_view ) )
             return false;
-        elseif ( false === strpos( $_view, PODS_DIR . 'ui/' ) && false === strpos( $_view, PODS_DIR . 'components/' ) && false === strpos( $_view, WP_CONTENT_DIR ) && false === strpos( $_view, ABSPATH ) ) {
-            $_view = rtrim( $_view, '/' );
+        // Look for basic file includes
+        elseif ( false === strpos( $_real_view, realpath( WP_PLUGIN_DIR ) ) && false === strpos( $_real_view, realpath( WPMU_PLUGIN_DIR ) ) ) {
+            $_real_view = rtrim( $_real_view, '/' );
 
-            if ( empty( $_view ) )
+            if ( empty( $_real_view ) )
                 return false;
 
-            if ( file_exists( STYLESHEETPATH . '/' . $_view ) )
-                $located = STYLESHEETPATH . '/' . $_view;
-            elseif ( file_exists( TEMPLATEPATH . '/' . $_view ) )
-                $located = TEMPLATEPATH . '/' . $_view;
+            if ( file_exists( realpath( get_stylesheet_directory() . '/' . $_real_view ) ) )
+                $located = realpath( get_stylesheet_directory() . '/' . $_real_view );
+            elseif ( file_exists( realpath( get_template_directory() . '/' . $_real_view ) ) )
+                $located = realpath( get_template_directory() . '/' . $_real_view );
         }
+        // Allow includes within plugins directory too for plugins utilizing this
         elseif ( file_exists( $_view ) )
             $located = $_view;
         else

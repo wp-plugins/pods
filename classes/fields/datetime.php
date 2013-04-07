@@ -8,7 +8,7 @@ class PodsField_DateTime extends PodsField {
      * Field Type Group
      *
      * @var string
-     * @since 2.0.0
+     * @since 2.0
      */
     public static $group = 'Date / Time';
 
@@ -16,7 +16,7 @@ class PodsField_DateTime extends PodsField {
      * Field Type Identifier
      *
      * @var string
-     * @since 2.0.0
+     * @since 2.0
      */
     public static $type = 'datetime';
 
@@ -24,7 +24,7 @@ class PodsField_DateTime extends PodsField {
      * Field Type Label
      *
      * @var string
-     * @since 2.0.0
+     * @since 2.0
      */
     public static $label = 'Date / Time';
 
@@ -32,14 +32,14 @@ class PodsField_DateTime extends PodsField {
      * Field Type Preparation
      *
      * @var string
-     * @since 2.0.0
+     * @since 2.0
      */
     public static $prepare = '%s';
 
     /**
      * Do things like register/enqueue scripts and stylesheets
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function __construct () {
 
@@ -50,22 +50,37 @@ class PodsField_DateTime extends PodsField {
      *
      * @return array
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function options () {
         $options = array(
+            'datetime_repeatable' => array(
+                'label' => __( 'Repeatable Field', 'pods' ),
+                'default' => 0,
+                'type' => 'boolean',
+                'help' => __( 'Making a field repeatable will add controls next to the field which allows users to Add/Remove/Reorder additional values. These values are saved in the database as an array, so searching and filtering by them may require further adjustments".', 'pods' ),
+                'boolean_yes_label' => '',
+                'dependency' => true,
+                'developer_mode' => true
+            ),
             'datetime_format' => array(
                 'label' => __( 'Date Format', 'pods' ),
                 'default' => 'mdy',
                 'type' => 'pick',
                 'data' => array(
-                    'mdy' => 'mm/dd/yyyy',
-                    'dmy' => 'dd/mm/yyyy',
-                    'dmy_dash' => 'dd-mm-yyyy',
-                    'dmy_dot' => 'dd.mm.yyyy',
-                    'ymd_slash' => 'yyyy/mm/dd',
-                    'ymd_dash' => 'yyyy-mm-dd',
-                    'ymd_dot' => 'yyyy.mm.dd'
+                    'mdy' => date_i18n( 'm/d/Y' ),
+                    'mdy_dash' => date_i18n( 'm-d-Y' ),
+                    'mdy_dot' => date_i18n( 'm.d.Y' ),
+                    'dmy' => date_i18n( 'd/m/Y' ),
+                    'dmy_dash' => date_i18n( 'd-m-Y' ),
+                    'dmy_dot' => date_i18n( 'd.m.Y' ),
+                    'ymd_slash' => date_i18n( 'Y/m/d' ),
+                    'ymd_dash' => date_i18n( 'Y-m-d' ),
+                    'ymd_dot' => date_i18n( 'Y.m.d' ),
+                    'dMd' => date_i18n( 'd/M/Y' ),
+                    'dMd_dash' => date_i18n( 'd-M-Y' ),
+                    'fjy' => date_i18n( 'F j, Y' ),
+                    'fjsy' => date_i18n( 'F jS, Y' )
                 )
             ),
             'datetime_time_type' => array(
@@ -75,23 +90,35 @@ class PodsField_DateTime extends PodsField {
                 'data' => array(
                     '12' => __( '12 hour', 'pods' ),
                     '24' => __( '24 hour', 'pods' )
-                )
+                ),
+                'dependency' => true
             ),
             'datetime_time_format' => array(
                 'label' => __( 'Time Format', 'pods' ),
+                'depends-on' => array( 'datetime_time_type' => '12' ),
                 'default' => 'h_mma',
                 'type' => 'pick',
                 'data' => array(
-                    'h_mm_A' => '1:25 PM',
-                    'h_mm_ss_A' => '1:25:00 PM',
-                    'hh_mm_A' => '01:25 PM',
-                    'hh_mm_ss_A' => '01:25:00 PM',
-                    'h_mma' => '1:25pm',
-                    'hh_mma' => '01:25pm',
-                    'h_mm' => '1:25',
-                    'h_mm_ss' => '1:25:00',
-                    'hh_mm' => '01:25',
-                    'hh_mm_ss' => '01:25:00'
+                    'h_mm_A' => date_i18n( 'g:i A' ),
+                    'h_mm_ss_A' => date_i18n( 'g:i:s A' ),
+                    'hh_mm_A' => date_i18n( 'h:i A' ),
+                    'hh_mm_ss_A' => date_i18n( 'h:i:s A' ),
+                    'h_mma' => date_i18n( 'g:ia' ),
+                    'hh_mma' => date_i18n( 'h:ia' ),
+                    'h_mm' => date_i18n( 'g:i' ),
+                    'h_mm_ss' => date_i18n( 'g:i:s' ),
+                    'hh_mm' => date_i18n( 'h:i' ),
+                    'hh_mm_ss' => date_i18n( 'h:i:s' )
+                )
+            ),
+            'datetime_time_format_24' => array(
+                'label' => __( 'Time Format', 'pods' ),
+                'depends-on' => array( 'datetime_time_type' => '24' ),
+                'default' => 'hh_mm',
+                'type' => 'pick',
+                'data' => array(
+                    'hh_mm' => date_i18n( 'H:i' ),
+                    'hh_mm_ss' => date_i18n( 'H:i:s' )
                 )
             ),
             'datetime_allow_empty' => array(
@@ -114,7 +141,7 @@ class PodsField_DateTime extends PodsField {
      * @param array $options
      *
      * @return array
-     * @since 2.0.0
+     * @since 2.0
      */
     public function schema ( $options = null ) {
         $schema = 'DATETIME NOT NULL default "0000-00-00 00:00:00"';
@@ -132,7 +159,7 @@ class PodsField_DateTime extends PodsField {
      * @param int $id
      *
      * @return mixed|null|string
-     * @since 2.0.0
+     * @since 2.0
      */
     public function display ( $value = null, $name = null, $options = null, $pod = null, $id = null ) {
         $format = $this->format( $options );
@@ -150,6 +177,8 @@ class PodsField_DateTime extends PodsField {
         }
         elseif ( 0 == pods_var( 'datetime_allow_empty', $options, 1 ) )
             $value = date_i18n( $format );
+        else
+            $value = '';
 
         return $value;
     }
@@ -163,10 +192,11 @@ class PodsField_DateTime extends PodsField {
      * @param array $pod
      * @param int $id
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function input ( $name, $value = null, $options = null, $pod = null, $id = null ) {
         $options = (array) $options;
+        $form_field_type = PodsForm::$field_type;
 
         if ( is_array( $value ) )
             $value = implode( ' ', $value );
@@ -189,7 +219,7 @@ class PodsField_DateTime extends PodsField {
      * @param object $params
      *
      * @return mixed|string
-     * @since 2.0.0
+     * @since 2.0
      */
     public function pre_save ( $value, $id = null, $name = null, $options = null, $fields = null, $pod = null, $params = null ) {
         $format = $this->format( $options );
@@ -215,12 +245,12 @@ class PodsField_DateTime extends PodsField {
      * @param array $pod
      *
      * @return mixed|null|string
-     * @since 2.0.0
+     * @since 2.0
      */
     public function ui ( $id, $value, $name = null, $options = null, $fields = null, $pod = null ) {
         $value = $this->display( $value, $name, $options, $pod, $id );
 
-        if ( 1 == pods_var( 'datetime_allow_empty', $options, 1 ) && in_array( $value, array( '0000-00-00', '0000-00-00 00:00:00', '00:00:00' ) ) )
+        if ( 1 == pods_var( 'datetime_allow_empty', $options, 1 ) && ( empty( $value ) || in_array( $value, array( '0000-00-00', '0000-00-00 00:00:00', '00:00:00' ) ) ) )
             $value = false;
 
         return $value;
@@ -232,17 +262,23 @@ class PodsField_DateTime extends PodsField {
      * @param $options
      *
      * @return string
-     * @since 2.0.0
+     * @since 2.0
      */
     public function format ( $options ) {
         $date_format = array(
             'mdy' => 'm/d/Y',
+            'mdy_dash' => 'm-d-Y',
+            'mdy_dot' => 'm.d.Y',
             'dmy' => 'd/m/Y',
             'dmy_dash' => 'd-m-Y',
             'dmy_dot' => 'd.m.Y',
             'ymd_slash' => 'Y/m/d',
             'ymd_dash' => 'Y-m-d',
-            'ymd_dot' => 'Y.m.d'
+            'ymd_dot' => 'Y.m.d',
+            'dMd' => 'd/M/Y',
+            'dMd_dash' => 'd-M-Y',
+            'fjy' => 'F j, Y',
+            'fjsy' => 'F jS, Y'
         );
 
         $time_format = array(

@@ -20,22 +20,23 @@
     <li>
         <?php
             $api = pods_api();
-            $all_pods = $api->load_pods();
+            $all_pods = $api->load_pods( array( 'names' => true ) );
         ?>
-
-        <label for="<?php echo $this->get_field_id( 'pod_type' ); ?>"> <?php _e( 'Pod Type', 'pods' ); ?></label>
+        <label for="<?php echo $this->get_field_id( 'pod_type' ); ?>">
+            <?php _e( 'Pod', 'pods' ); ?>
+        </label>
 
         <?php if ( 0 < count( $all_pods ) ): ?>
             <select id="<?php $this->get_field_id( 'pod_type' ); ?>" name="<?php echo $this->get_field_name( 'pod_type' ); ?>">
-                <?php foreach ( $all_pods as $pod ): ?>
-                    <?php $selected = ( $pod[ 'name' ] == $pod_type ) ? 'selected' : ''; ?>
-                    <option value="<?php echo $pod[ 'name' ]; ?>" <?php echo $selected; ?>>
-                        <?php echo esc_html( $pod[ 'label' ] ); ?>
+                <?php foreach ( $all_pods as $pod_name => $pod_label ): ?>
+                    <?php $selected = ( $pod_name == $pod_type ) ? 'selected' : ''; ?>
+                    <option value="<?php echo $pod_name; ?>" <?php echo $selected; ?>>
+                        <?php echo esc_html( $pod_label . ' (' . $pod_name . ')' ); ?>
                     </option>
                 <?php endforeach; ?>
             </select>
         <?php else: ?>
-            <strong class="red"><?php _e( 'None Found', 'title' ); ?></strong>
+            <strong class="red"><?php _e( 'None Found', 'pods' ); ?></strong>
         <?php endif; ?>
     </li>
 
@@ -81,5 +82,32 @@
         <label for="<?php echo $this->get_field_id( 'where' ); ?>"><?php _e( 'Where', 'pods' ); ?></label>
 
         <input class="widefat" type="text" id="<?php echo $this->get_field_id( 'where' ); ?>" name="<?php echo $this->get_field_name( 'where' ); ?>" value="<?php echo esc_attr( $where ); ?>" />
+    </li>
+
+    <li>
+        <label for="<?php echo $this->get_field_id( 'cache_mode' ); ?>"><?php _e( 'Cache Type', 'pods' ); ?></label>
+
+        <?php
+            $cache_modes = array(
+                'none' => __( 'Disable Caching', 'pods' ),
+                'cache' => __( 'Object Cache', 'pods' ),
+                'transient' => __( 'Transient', 'pods' ),
+                'site-transient' => __( 'Site Transient', 'pods' )
+            );
+        ?>
+        <select id="<?php echo $this->get_field_id( 'cache_mode' ); ?>" name="<?php echo $this->get_field_name( 'cache_mode' ); ?>">
+            <?php foreach ( $cache_modes as $cache_mode_option => $cache_mode_label ): ?>
+            <?php $selected = ( $cache_mode_option == $cache_mode ) ? 'selected' : ''; ?>
+            <option value="<?php echo $cache_mode_option; ?>" <?php echo $selected; ?>>
+                <?php echo esc_html( $cache_mode_label ); ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+    </li>
+
+    <li>
+        <label for="<?php $this->get_field_id( 'expires' ); ?>"><?php _e( 'Cache Expiration (in seconds)', 'pods' ); ?></label>
+
+        <input class="widefat" type="text" name="<?php echo $this->get_field_name( 'expires' ); ?>" id="<?php echo $this->get_field_id( 'expires' ); ?>" value="<?php echo esc_attr( $expires ); ?>" />
     </li>
 </ol>

@@ -4,7 +4,9 @@
  *
  * Description: A holdover from Pods 1.x, you most likely don't need these and we recommend you use our WP filters and actions instead.
  *
- * Version: 2.0
+ * Version: 2.3
+ *
+ * Category: Advanced
  *
  * Menu Page: edit.php?post_type=_pods_helper
  * Menu Add Page: post-new.php?post_type=_pods_helper
@@ -20,7 +22,7 @@ class Pods_Helpers extends PodsComponent {
      *
      * @var object
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     static $obj = null;
 
@@ -29,14 +31,14 @@ class Pods_Helpers extends PodsComponent {
      *
      * @var string
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     private $object_type = '_pods_helper';
 
     /**
      * Do things like register/enqueue scripts and stylesheets
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function __construct () {
         $args = array(
@@ -75,7 +77,15 @@ class Pods_Helpers extends PodsComponent {
             add_action( 'delete_post', array( $this, 'clear_cache' ), 10, 1 );
             add_filter( 'post_row_actions', array( $this, 'remove_row_actions' ), 10, 2 );
             add_filter( 'bulk_actions-edit-' . $this->object_type, array( $this, 'remove_bulk_actions' ) );
+
+            add_filter( 'builder_layout_filter_non_layout_post_types', array( $this, 'disable_builder_layout' ) );
         }
+    }
+
+    public function disable_builder_layout ( $post_types ) {
+        $post_types[] = $this->object_type;
+
+        return $post_types;
     }
 
     /**
@@ -135,7 +145,7 @@ class Pods_Helpers extends PodsComponent {
     /**
      * Enqueue styles
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function admin_assets () {
         wp_enqueue_style( 'pods-admin' );
@@ -189,31 +199,35 @@ class Pods_Helpers extends PodsComponent {
     /**
      * Clear cache on save
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function clear_cache ( $data, $pod = null, $id = null, $groups = null, $post = null ) {
+        $old_post = $id;
+
+        if ( !is_object( $id ) )
+            $old_post = null;
+
+        if ( is_object( $post ) && $this->object_type != $post->post_type )
+            return;
+
         if ( !is_array( $data ) && 0 < $data ) {
             $post = $data;
             $post = get_post( $post );
-
-            if ( is_object( $id ) ) {
-                $old_post = $id;
-
-                pods_transient_clear( 'pods_object_helper_' . $old_post->post_name );
-            }
         }
 
-        if ( $this->object_type != $post->post_type )
-            return;
+        if ( $this->object_type == $post->object_type ) {
+            if ( is_object( $old_post ) && $this->object_type == $old_post->object_type ) {
+                pods_transient_clear( 'pods_object_helper_' . $old_post->post_name );
+            }
 
-        pods_transient_clear( 'pods_object_helper' );
-        pods_transient_clear( 'pods_object_helper_' . $post->post_name );
+            pods_transient_clear( 'pods_object_helper_' . $post->post_name );
+        }
     }
 
     /**
      * Change post title placeholder text
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function set_title_text ( $text, $post ) {
         return __( 'Enter helper name here', 'pods' );
@@ -222,7 +236,7 @@ class Pods_Helpers extends PodsComponent {
     /**
      * Edit page form
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function edit_page_form () {
         global $post_type;
@@ -236,7 +250,7 @@ class Pods_Helpers extends PodsComponent {
     /**
      * Add meta boxes to the page
      *
-     * @since 2.0.0
+     * @since 2.0
      */
     public function add_meta_boxes () {
         $pod = array(
@@ -348,7 +362,7 @@ class Pods_Helpers extends PodsComponent {
      * @param null $obj
      *
      * @return mixed Anything returned by the helper
-     * @since 2.0.0
+     * @since 2.0
      */
     public static function helper ( $params, $obj = null ) {
         /**

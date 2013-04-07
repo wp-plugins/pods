@@ -9,10 +9,22 @@
 
     <hr />
 
+    <h3>Recommended Plugins</h3>
+
+    <p>These plugins work together with Pods to bring your site even more organization and functionality.</p>
+
+    <ul class="ul-disc">
+        <li><a href="http://wordpress.org/extend/plugins/codepress-admin-columns/" target="_blank">CodePress Admin Columns</a> - <em>Change the columns shown on the manage tables for Post Types, Taxonomies, and others areas</em></li>
+        <li><a href="http://wordpress.org/extend/plugins/tabify-edit-screen/" target="_blank">Tabify Edit Screens</a> - <em>Separate all of those pesky meta boxes that plugins add into tabs to more easily get to</em></li>
+        <li><a href="http://wordpress.org/extend/plugins/polylang/" target="_blank">Polylang</a> - <em>Make your site multi-lingual with ease, add as many languages as you need</em></li>
+    </ul>
+
+    <hr />
+
     <?php
         include_once( ABSPATH . WPINC . '/feed.php' );
 
-        $feed = fetch_feed( 'http://podsframework.org/forums/forum/general-discussion/pods-2-x/feed/' );
+        $feed = fetch_feed( 'http://pods.io/forums/forum/general-discussion/pods-2-x/feed/' );
 
         if ( !is_wp_error( $feed ) ) {
             $max_items = $feed->get_item_quantity( 6 );
@@ -20,7 +32,7 @@
 
             if ( 0 < $max_items ) {
     ?>
-        <h3>Latest Forum Posts at <a href="http://podsframework.org/forums/forum/general-discussion/pods-2-x/" target="_blank">podsframework.org</a></h3>
+        <h3>Latest Forum Posts at <a href="http://pods.io/forums/forum/general-discussion/pods-2-x/" target="_blank">pods.io</a></h3>
 
         <ul class="ul-disc">
             <?php
