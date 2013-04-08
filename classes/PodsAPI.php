@@ -201,9 +201,9 @@ class PodsAPI {
 
         $meta = get_post_meta( $id );
 
-        foreach ( $meta as &$value ) {
-            if ( is_array( $value ) && 1 == count( $value ) && isset( $value[ 0 ] ) )
-                $value = $value[ 0 ];
+        foreach ( $meta as $k => $value ) {
+            if ( is_array( $value ) && 1 == count( $value ) )
+                $meta[ $k ] = current( $value );
         }
 
         foreach ( $post_meta as $meta_key => $meta_value ) {
@@ -2896,8 +2896,6 @@ class PodsAPI {
                     if ( !is_array( $value ) )
                         $value = explode( ',', $value );
 
-                    $value = array_unique( array_filter( $value ) );
-
                     $rel_fields[ $type ][ $field ] = $value;
                     $rel_field_ids[] = $field_data[ 'id' ];
                 }
@@ -2980,44 +2978,33 @@ class PodsAPI {
                         $related_limit = 1;
 
                     // Enforce integers / unique values for IDs
-                    $new_values = array();
+                    $value_ids = array();
 
                     foreach ( $values as $v ) {
                         if ( !empty( $v ) ) {
-                            if ( !is_array( $v ) ) {
+                            if ( !is_array( $v ) )
                                 $v = (int) $v;
+                            elseif ( in_array( $type, PodsForm::file_field_types() ) && isset( $v[ 'id' ] ) )
+                                $v = (int) $v[ 'id' ];
+                            else
+                                continue;
 
-                                if ( !empty( $v ) && !in_array( $v, $new_values ) )
-                                    $new_values[] = $v;
-                            }
-                            elseif ( in_array( $type, PodsForm::file_field_types() ) && !in_array( $v, $new_values ) )
-                                $new_values[] = $v;
+                            if ( !empty( $v ) && !in_array( $v, $value_ids ) )
+                                $value_ids[] = $v;
                         }
                     }
 
-                    $values = array_unique( array_filter( $new_values ) );
+                    $value_ids = array_unique( array_filter( $value_ids ) );
 
                     // Limit values
-                    if ( 0 < $related_limit && !empty( $values ) )
-                        $values = array_slice( $values, 0, $related_limit );
+                    if ( 0 < $related_limit && !empty( $value_ids ) )
+                        $value_ids = array_slice( $value_ids, 0, $related_limit );
 
                     // Get current values
                     if ( 'pick' == $type && isset( PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ] ) && isset( PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ][ 'current_ids' ] ) )
                         $related_ids = PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ][ 'current_ids' ];
                     else
                         $related_ids = $this->lookup_related_items( $fields[ $field ][ 'id' ], $pod[ 'id' ], $params->id, $fields[ $field ], $pod );
-
-                    // Get values removed
-                    $value_ids = $values;
-
-                    if ( 'pick' != $type ) {
-                        foreach ( $value_ids as $k => $id ) {
-                            if ( is_array( $id ) && isset( $id[ 'id' ] ) )
-                                $id = (int) $id[ 'id' ];
-
-                            $value_ids[ $k ] = $id;
-                        }
-                    }
 
                     // Get ids to remove
                     $remove_ids = array_diff( $related_ids, $value_ids );
@@ -4519,8 +4506,8 @@ class PodsAPI {
                         $value[ $k ] = maybe_unserialize( $v );
                 }
 
-                if ( 1 == count( $value ) && isset( $value[ 0 ] ) )
-                    $value = $value[ 0 ];
+                if ( 1 == count( $value ) )
+                    $value = current( $value );
             }
             else
                 $value = maybe_unserialize( $value );
@@ -5033,8 +5020,8 @@ class PodsAPI {
                                 $value[ $k ] = maybe_unserialize( $v );
                         }
 
-                        if ( 1 == count( $value ) && isset( $value[ 0 ] ) )
-                            $value = $value[ 0 ];
+                        if ( 1 == count( $value ) )
+                            $value = current( $value );
                     }
                     else
                         $value = maybe_unserialize( $value );
@@ -5343,8 +5330,8 @@ class PodsAPI {
         $object[ 'options' ] = get_post_meta( $object[ 'id' ] );
 
         foreach ( $object[ 'options' ] as $option => &$value ) {
-            if ( is_array( $value ) && 1 == count( $value ) && isset( $value[ 0 ] ) )
-                $value = $value[ 0 ];
+            if ( is_array( $value ) && 1 == count( $value ) )
+                $value = current( $value );
         }
 
         if ( 'page' == $object[ 'type' ] )
@@ -5885,9 +5872,9 @@ class PodsAPI {
         if ( !empty( $field ) ) {
             $options = (array) pods_var_raw( 'options', $field, $field, null, true );
 
-            $related_pick_limit = (int) pods_var( 'pick_limit', $options, 0 );
+            $related_pick_limit = (int) pods_var( pods_var( 'type', $field ) . '_limit', $options, 0 );
 
-            if ( 'single' == pods_var_raw( 'pick_format_type', $options ) )
+            if ( 'single' == pods_var_raw( pods_var( 'type', $field ) . '_format_type', $options ) )
                 $related_pick_limit = 1;
 
             // Temporary hack until there's some better handling here
