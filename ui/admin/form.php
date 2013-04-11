@@ -93,7 +93,7 @@ if ( 0 < $pod->id() ) {
 }
 ?>
 
-<form action="" method="post" class="pods-submittable pods-form pods-form-pod-<?php echo $pod->pod; ?>">
+<form action="" method="post" class="pods-submittable pods-form pods-form-pod-<?php echo $pod->pod; ?> pods-submittable-ajax">
     <div class="pods-submittable-fields">
         <?php echo PodsForm::field( 'action', 'pods_admin', 'hidden' ); ?>
         <?php echo PodsForm::field( 'method', 'process_form', 'hidden' ); ?>
@@ -271,11 +271,17 @@ if ( 0 < $pod->id() ) {
                                 continue;
 
                             $more = true;
+                            $extra = '';
+
+                            $max_length = (int) pods_var( 'maxlength', $field[ 'options' ], pods_var( $field[ 'type' ] . '_max_length', $field[ 'options' ], 0 ), null, true );
+
+                            if ( 0 < $max_length )
+                                $extra .= ' maxlength="' . $max_length . '"';
                             ?>
                             <div id="titlediv">
                                 <div id="titlewrap">
                                     <label class="hide-if-no-js" style="visibility:hidden" id="title-prompt-text" for="title"><?php echo apply_filters( 'pods_enter_name_here', __( 'Enter name here', 'pods' ), $pod, $fields ); ?></label>
-                                    <input type="text" name="pods_field_<?php echo $pod->pod_data[ 'field_index' ]; ?>" data-name-clean="pods-field-<?php echo $pod->pod_data[ 'field_index' ]; ?>" id="title" size="30" tabindex="1" value="<?php echo esc_attr( htmlspecialchars( $pod->index() ) ); ?>" class="pods-form-ui-field-name-pods-field-<?php echo $pod->pod_data[ 'field_index' ]; ?>" autocomplete="off" />
+                                    <input type="text" name="pods_field_<?php echo $pod->pod_data[ 'field_index' ]; ?>" data-name-clean="pods-field-<?php echo $pod->pod_data[ 'field_index' ]; ?>" id="title" size="30" tabindex="1" value="<?php echo esc_attr( htmlspecialchars( $pod->index() ) ); ?>" class="pods-form-ui-field-name-pods-field-<?php echo $pod->pod_data[ 'field_index' ]; ?>" autocomplete="off"<?php echo $extra; ?> />
                                 </div>
                                 <!-- /#titlewrap -->
 
@@ -353,8 +359,8 @@ if ( 0 < $pod->id() ) {
 <!-- /#pods-record -->
 
 <script type="text/javascript">
-    if ( 'undefined' == typeof pods_ajaxurl ) {
-        var pods_ajaxurl = '<?php echo admin_url( 'admin-ajax.php?pods_ajax=1' ); ?>';
+    if ( 'undefined' == typeof ajaxurl ) {
+        var ajaxurl = '<?php echo admin_url( 'admin-ajax.php' ); ?>';
     }
 
     jQuery( function ( $ ) {

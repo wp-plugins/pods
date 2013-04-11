@@ -1433,10 +1433,22 @@ class PodsAPI {
         }
 
         if ( true === $db ) {
-            if ( !has_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ) ) )
-                add_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ), 100, 6 );
+            if ( !has_filter( 'wp_unique_post_slug', array( $this, 'save_slug_fix' ) ) )
+                add_filter( 'wp_unique_post_slug', array( $this, 'save_slug_fix' ), 100, 6 );
+
+            $conflicted = false;
+
+            // Headway compatibility fix
+            if ( has_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 ) ) {
+                remove_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 );
+
+                $conflicted = true;
+            }
 
             $params->id = $this->save_wp_object( 'post', $post_data, $pod[ 'options' ], true, true );
+
+            if ( $conflicted )
+                add_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 );
 
             if ( false === $params->id )
                 return pods_error( __( 'Cannot save Pod', 'pods' ), $this );
@@ -2099,10 +2111,22 @@ class PodsAPI {
         }
 
         if ( true === $db ) {
-            if ( !has_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ) ) )
-                add_filter( 'wp_unique_post_slug', array( $this, 'save_field_slug_fix' ), 100, 6 );
+            if ( !has_filter( 'wp_unique_post_slug', array( $this, 'save_slug_fix' ) ) )
+                add_filter( 'wp_unique_post_slug', array( $this, 'save_slug_fix' ), 100, 6 );
+
+            $conflicted = false;
+
+            // Headway compatibility fix
+            if ( has_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 ) ) {
+                remove_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 );
+
+                $conflicted = true;
+            }
 
             $params->id = $this->save_wp_object( 'post', $post_data, $field[ 'options' ], true, true );
+
+            if ( $conflicted )
+                add_filter( 'wp_insert_post_data', 'headway_clean_slug', 0 );
 
             if ( false === $params->id )
                 return pods_error( __( 'Cannot save Field', 'pods' ), $this );
@@ -2134,14 +2158,14 @@ class PodsAPI {
                         $test = false;
 
                         if ( 0 < strlen( $old_definition ) )
-                            $test = pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` CHANGE `" . $field[ 'name' ] . "` {$definition}", false );
+                            $test = pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` CHANGE `{$old_name}` {$definition}", false );
 
                         // If the old field doesn't exist, continue to add a new field
                         if ( false === $test )
                             pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` ADD COLUMN {$definition}", __( 'Cannot create new field', 'pods' ) );
                     }
                     elseif ( null !== $old_definition && $definition != $old_definition ) {
-                        $test = pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` CHANGE `" . $field[ 'name' ] . "` {$definition}", false );
+                        $test = pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` CHANGE `{$old_name}` {$definition}", false );
 
                         // If the old field doesn't exist, continue to add a new field
                         if ( false === $test )
@@ -2279,7 +2303,7 @@ class PodsAPI {
             return $field;
     }
 
-    public function save_field_slug_fix ( $slug, $post_ID, $post_status, $post_type, $post_parent = 0, $original_slug = null ) {
+    public function save_slug_fix ( $slug, $post_ID, $post_status, $post_type, $post_parent = 0, $original_slug = null ) {
         if ( in_array( $post_type, array( '_pods_field', '_pods_pod' ) ) && false !== strpos( $slug, '-' ) ) {
             $slug = explode( '-', $slug );
             $slug = $slug[ 0 ];
@@ -2804,7 +2828,7 @@ class PodsAPI {
                     return pods_error( $validate, $this );
             }
 
-            $value = PodsForm::pre_save( $field_data[ 'type' ], $value, $params->id, $field, array_merge( $options, $field_data ), array_merge( $fields, $object_fields ), $pod, $params );
+            $value = PodsForm::pre_save( $field_data[ 'type' ], $value, $params->id, $field, array_merge( $field_data, $options ), array_merge( $fields, $object_fields ), $pod, $params );
 
             $field_data[ 'value' ] = $value;
 
@@ -2820,7 +2844,7 @@ class PodsAPI {
 
                     $custom = pods_var_raw( 'pick_custom', $options, '' );
 
-                    $custom = apply_filters( 'pods_form_ui_field_pick_custom_values', $custom, $field_data[ 'name' ], $value, array_merge( $options, $field_data ), $pod, $params->id );
+                    $custom = apply_filters( 'pods_form_ui_field_pick_custom_values', $custom, $field_data[ 'name' ], $value, array_merge( $field_data, $options ), $pod, $params->id );
 
                     $pick_limit = (int) pods_var_raw( 'pick_limit', $options, 0 );
 
@@ -3028,9 +3052,9 @@ class PodsAPI {
                     // Run save function for field type (where needed)
                     PodsForm::save( $type, $values, $params->id, $field, array_merge( $fields[ $field ], $fields[ $field ][ 'options' ] ), array_merge( $fields, $object_fields ), $pod, $params );
 
-                    if ( 'pick' == $field[ 'type' ] && isset( PodsField_Pick::$related_data[ $field[ 'id' ] ] ) ) {
-                        unset( PodsField_Pick::$related_data[ PodsField_Pick::$related_data[ $field[ 'id' ] ][ 'related_field' ][ 'id' ] ] );
-                        unset( PodsField_Pick::$related_data[ $field[ 'id' ] ] );
+                    if ( 'pick' == $type && isset( PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ] ) ) {
+                        unset( PodsField_Pick::$related_data[ PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ][ 'related_field' ][ 'id' ] ] );
+                        unset( PodsField_Pick::$related_data[ $fields[ $field ][ 'id' ] ] );
                     }
                 }
             }
@@ -3325,6 +3349,10 @@ class PodsAPI {
         $pod[ 'name' ] = $check_name;
         $pod[ 'label' ] = $new_label;
 
+        foreach ( $pod[ 'fields' ] as $field => $field_data ) {
+            unset( $pod[ 'fields' ][ $field ][ 'id' ] );
+        }
+
         return $this->save_pod( $pod );
     }
 
@@ -3446,6 +3474,8 @@ class PodsAPI {
         $tableless_field_types = PodsForm::tableless_field_types();
         $simple_tableless_objects = PodsForm::field_method( 'pick', 'simple_objects' );
 
+        $object_fields = (array) pods_var_raw( 'object_fields', $pod->pod_data, array(), null, true );
+
         $export_fields = array();
 
         foreach ( $fields as $k => $field ) {
@@ -3507,18 +3537,22 @@ class PodsAPI {
 
                     $related_pod = pods( pods_var_raw( 'pick_val', $field ), null, false );
 
-                    // If this isn't a Pod, return data exactly as Pods does normally
-                    if ( empty( $related_pod ) || ( 'pod' != $pick_object && $pick_object != $related_pod->pod_data[ 'type' ] ) )
+                    // If this isn't a Pod, return data exactly as Pods does normally$
+                    if ( empty( $related_pod ) || ( 'pod' != $pick_object && $pick_object != $related_pod->pod_data[ 'type' ] ) || $related_pod->pod == $pod->pod )
                         $related_data = $pod->field( $field[ 'name' ] );
                     else {
+                        $related_object_fields = (array) pods_var_raw( 'object_fields', $related_pod->pod_data, array(), null, true );
+
+                        $related_fields = array_merge( $related_pod->fields, $related_object_fields );
+
+                        $related_data = $this->export_pod_item_level( $related_pod, $related_fields, $depth, $flatten, ( $current_depth + 1 ) );
+
                         foreach ( $related_ids as $related_id ) {
-                            $object_fields = (array) pods_var_raw( 'object_fields', $related_pod->pod_data, array(), null, true );
+                            if ( $related_pod->fetch( $related_id ) ) {
 
-                            $related_fields = array_merge( $pod->fields, $object_fields );
 
-                            $related_data = $this->export_pod_item_level( $related_pod, $related_fields, $depth, $flatten, ( $current_depth + 1 ) );
-
-                            $related_data = $this->do_hook( 'export_pod_item_level', $related_data, $related_pod->pod, $related_pod->id(), $related_pod, $related_fields, $depth, $flatten, ( $current_depth + 1 ) );
+                                $related_data = $this->do_hook( 'export_pod_item_level', $related_data, $related_pod->pod, $related_pod->id(), $related_pod, $related_fields, $depth, $flatten, ( $current_depth + 1 ) );
+                            }
                         }
                     }
                 }
@@ -5836,7 +5870,7 @@ class PodsAPI {
             }
         }
 
-        $validate = PodsForm::validate( $options[ 'type' ], $value, $field, array_merge( pods_var( 'options', $options, array() ), $options ), $fields, $pod, $id, $params );
+        $validate = PodsForm::validate( $options[ 'type' ], $value, $field, array_merge( $options, pods_var( 'options', $options, array() ) ), $fields, $pod, $id, $params );
 
         $validate = $this->do_hook( 'field_validation', $validate, $value, $field, $object_fields, $fields, $pod, $params );
 

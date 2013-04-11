@@ -292,23 +292,23 @@ class Pods {
      * @since 2.0
      */
     public function fields ( $field = null, $option = null ) {
-        $field_data = null;
-
         // No fields found
         if ( empty( $this->fields ) )
-            $field_data = false;
+            $field_data = array();
         // Return all fields
         elseif ( empty( $field ) )
             $field_data = (array) $this->fields;
         // Field not found
         elseif ( !isset( $this->fields[ $field ] ) )
-            $field_data = false;
+            $field_data = array();
         // Return all field data
         elseif ( empty( $option ) )
             $field_data = $this->fields[ $field ];
         else {
             // Merge options
             $options = array_merge( $this->fields[ $field ], $this->fields[ $field ][ 'options' ] );
+
+            $field_data = null;
 
             // Return option
             if ( isset( $options[ $option ] ) )
@@ -383,7 +383,7 @@ class Pods {
                     $this->fields[ $params->name ][ 'type' ],
                     $value,
                     $params->name,
-                    array_merge( $this->fields[ $params->name ][ 'options' ], $this->fields[ $params->name ] ),
+                    array_merge( $this->fields[ $params->name ], $this->fields[ $params->name ][ 'options' ] ),
                     $this->pod_data,
                     $this->id(),
                     $params
@@ -714,6 +714,7 @@ class Pods {
                     if ( in_array( $this->pod_data[ 'type' ], array( 'post_type', 'media' ) ) ) {
                         $id = $this->id();
 
+                        // Support for WPML 'duplicated' translation handling
                         if ( function_exists( 'icl_get_languages' ) ) {
                             $master_post_id = (int) get_post_meta( $id, '_icl_lang_duplicate_of', true );
 
@@ -987,6 +988,8 @@ class Pods {
 
                                     $value = PodsForm::field_method( 'pick', 'simple_value', $field, $value, $last_options, $all_fields[ $pod ], 0, true );
                                 }
+                                elseif ( false === $params->in_form && !empty( $value ) )
+                                    $value = array_values( $value );
 
                                 // Return a single column value
                                 if ( false === $params->in_form && 1 == $limit && !empty( $value ) && is_array( $value ) && 1 == count( $value ) )
@@ -1031,7 +1034,7 @@ class Pods {
                         $field_data[ 'type' ],
                         $value,
                         $params->name,
-                        array_merge( $field_data[ 'options' ], $field_data ),
+                        array_merge( $field_data, $field_data[ 'options' ] ),
                         $this->pod_data,
                         $this->id()
                     );
@@ -1045,7 +1048,7 @@ class Pods {
                     $field_data[ 'type' ],
                     $value,
                     $params->name,
-                    array_merge( $field_data[ 'options' ], $field_data ),
+                    array_merge( $field_data, $field_data[ 'options' ] ),
                     $this->pod_data,
                     $this->id()
                 );
