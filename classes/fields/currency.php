@@ -276,8 +276,6 @@ class PodsField_Currency extends PodsField {
         if ( is_array( $value ) )
             $value = implode( '', $value );
 
-        $value = $this->pre_save( $value, $id, $name, $options, null, $pod );
-
         if ( 'slider' == pods_var( self::$type . '_format_type', $options, 'number' ) )
             $field_type = 'slider';
         else
@@ -342,7 +340,7 @@ class PodsField_Currency extends PodsField {
      * @return bool|mixed|void
      * @since 2.0
      */
-    public function validate ( &$value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
+    public function validate ( $value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
         global $wp_locale;
 
         if ( '9999.99' == pods_var( self::$type . '_format', $options ) ) {
@@ -424,7 +422,7 @@ class PodsField_Currency extends PodsField {
 
         $value = str_replace( array( $thousands, $dot, $currency_sign ), array( '', '.', '' ), $value );
 
-        $value = preg_replace( '/[^0-9\.]/', '', $value );
+        $value = preg_replace( '/[^0-9\.\-]/', '', $value );
 
         $length = (int) pods_var( self::$type . '_max_length', $options, 12, null, true );
 

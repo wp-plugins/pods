@@ -116,8 +116,7 @@ class PodsInit {
         add_action( 'init', array( $this, 'activate_install' ), 9 );
 
         if ( !empty( self::$version ) ) {
-            if ( !defined( 'PODS_LIGHT' ) || !PODS_LIGHT )
-                add_action( 'plugins_loaded', array( $this, 'load_components' ) );
+            add_action( 'plugins_loaded', array( $this, 'load_components' ), 11 );
 
             add_action( 'setup_theme', array( $this, 'load_meta' ), 14 );
 
@@ -156,7 +155,8 @@ class PodsInit {
      * Load Pods Components
      */
     public function load_components () {
-        self::$components = pods_components();
+        if ( !defined( 'PODS_LIGHT' ) || !PODS_LIGHT )
+            self::$components = pods_components();
     }
 
     /**
@@ -214,7 +214,9 @@ class PodsInit {
         $this->register_pods();
 
         $avatar = PodsForm::field_loader( 'avatar' );
-        add_filter( 'get_avatar', array( $avatar, 'get_avatar' ), 10, 5 );
+
+        if ( method_exists( $avatar, 'get_avatar' ) )
+            add_filter( 'get_avatar', array( $avatar, 'get_avatar' ), 10, 4 );
     }
 
     /**
@@ -312,22 +314,9 @@ class PodsInit {
     /**
      * Register Post Types and Taxonomies
      */
-    public function setup_content_types ( $post_types = array(), $taxonomies = array() ) {
-        $force = false;
-
-        if ( !empty( $post_types ) && is_array( $post_types ) ) {
-            $post_types = array_merge( PodsMeta::$post_types, $post_types );
-            $force = true;
-        }
-        else
-            $post_types = PodsMeta::$post_types;
-
-        if ( !empty( $taxonomies ) && is_array( $taxonomies ) ) {
-            $taxonomies = array_merge( PodsMeta::$taxonomies, $taxonomies );
-            $force = true;
-        }
-        else
-            $taxonomies = PodsMeta::$taxonomies;
+    public function setup_content_types ( $force = false ) {
+        $post_types = PodsMeta::$post_types;
+        $taxonomies = PodsMeta::$taxonomies;
 
         $existing_post_types = get_post_types();
         $existing_taxonomies = get_taxonomies();
@@ -344,25 +333,19 @@ class PodsInit {
             $force = true;
 
         if ( false === $pods_cpt_ct || $force ) {
-            if ( false === $pods_cpt_ct ) {
-                $pods_cpt_ct = array(
-                    'post_types' => array(),
-                    'taxonomies' => array()
-                );
-            }
+            $pods_cpt_ct = array(
+                'post_types' => array(),
+                'taxonomies' => array()
+            );
 
             $pods_post_types = $pods_taxonomies = array();
             $supported_post_types = $supported_taxonomies = array();
 
             foreach ( $post_types as $post_type ) {
-                if ( in_array( $post_type[ 'name' ], $pods_cpt_ct[ 'post_types' ] ) )
-                    continue;
-
                 // Post Type exists already
-                if ( empty( $post_type[ 'object' ] ) && isset( $existing_post_types[ $post_type[ 'name' ] ] ) )
+                if ( isset( $pods_cpt_ct[ 'post_types' ][ $post_type[ 'name' ] ] ) )
                     continue;
-
-                if ( !empty( $post_type[ 'object' ] ) && isset( $existing_post_types[ $post_type[ 'object' ] ] ) )
+                elseif ( !empty( $post_type[ 'object' ] ) && isset( $existing_post_types[ $post_type[ 'object' ] ] ) )
                     continue;
 
                 $post_type[ 'options' ][ 'name' ] = $post_type[ 'name' ];
@@ -427,7 +410,7 @@ class PodsInit {
                 // WP needs something, if this was empty and none were enabled, it would show title+editor pre 3.5 :(
                 $cpt_supports = array();
 
-                if ( !pods_wp_version( '3.5' ) )
+                if ( !pods_version_check( 'wp', '3.5' ) )
                     $cpt_supports = array( '_bug_fix_pre_35' );
 
                 foreach ( $cpt_supported as $cpt_support => $supported ) {
@@ -435,7 +418,7 @@ class PodsInit {
                         $cpt_supports[] = $cpt_support;
                 }
 
-                if ( empty( $cpt_supports ) && pods_wp_version( '3.5' ) )
+                if ( empty( $cpt_supports ) && pods_version_check( 'wp', '3.5' ) )
                     $cpt_supports = false;
 
                 // Rewrite
@@ -524,14 +507,10 @@ class PodsInit {
             }
 
             foreach ( $taxonomies as $taxonomy ) {
-                if ( in_array( $taxonomy[ 'name' ], $pods_cpt_ct[ 'taxonomies' ] ) )
+                // Taxonomy Type exists already
+                if ( isset( $pods_cpt_ct[ 'taxonomies' ][ $taxonomy[ 'name' ] ] ) )
                     continue;
-
-                // Taxonomy exists already
-                if ( empty( $taxonomy[ 'object' ] ) && isset( $existing_taxonomies[ $taxonomy[ 'name' ] ] ) )
-                    continue;
-
-                if ( !empty( $taxonomy[ 'object' ] ) && isset( $existing_taxonomies[ $taxonomy[ 'object' ] ] ) )
+                elseif ( !empty( $taxonomy[ 'object' ] ) && isset( $existing_taxonomies[ $taxonomy[ 'object' ] ] ) )
                     continue;
 
                 $taxonomy[ 'options' ][ 'name' ] = $taxonomy[ 'name' ];
@@ -658,6 +637,9 @@ class PodsInit {
             if ( is_array( $options[ 'rewrite' ] ) && isset( $options[ 'rewrite' ][ 'slug' ] ) && !empty( $options[ 'rewrite' ][ 'slug' ] ) )
                 $options[ 'rewrite' ][ 'slug' ] = _x( $options[ 'rewrite' ][ 'slug' ], 'URL taxonomy slug', 'pods' );
 
+            if ( 1 == pods_var( 'pods_debug_register', 'get', 0 ) && is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'pods' ) ) )
+                pods_debug( array( $taxonomy, $ct_post_types, $options ) );
+
             register_taxonomy( $taxonomy, $ct_post_types, $options );
 
             if ( !isset( self::$content_types_registered[ 'taxonomies' ] ) )
@@ -680,6 +662,9 @@ class PodsInit {
             // i18n compatibility for plugins that override it
             if ( is_array( $options[ 'rewrite' ] ) && isset( $options[ 'rewrite' ][ 'slug' ] ) && !empty( $options[ 'rewrite' ][ 'slug' ] ) )
                 $options[ 'rewrite' ][ 'slug' ] = _x( $options[ 'rewrite' ][ 'slug' ], 'URL slug', 'pods' );
+
+            if ( 1 == pods_var( 'pods_debug_register', 'get', 0 ) && is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'pods' ) ) )
+                pods_debug( array( $post_type, $options ) );
 
             register_post_type( $post_type, $options );
 

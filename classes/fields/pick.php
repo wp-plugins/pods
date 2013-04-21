@@ -624,7 +624,7 @@ class PodsField_Pick extends PodsField {
      * @return array|bool
      * @since 2.0
      */
-    public function validate ( &$value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
+    public function validate ( $value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
         if ( empty( self::$api ) )
             self::$api = pods_api();
 
@@ -1060,7 +1060,7 @@ class PodsField_Pick extends PodsField {
      * @return array|bool Object data
      */
     private function get_object_data ( $object_params = null ) {
-        global $wpdb, $polylang;
+        global $wpdb, $polylang, $sitepress;
 
         $object_params = array_merge(
             array(
@@ -1098,7 +1098,7 @@ class PodsField_Pick extends PodsField {
             $data = array();
 
             if ( 'custom-simple' == $options[ 'pick_object' ] ) {
-                $custom = trim( pods_var_raw( 'pick_custom', $options, '' ) );
+                $custom = pods_var_raw( 'pick_custom', $options, '' );
 
                 $custom = apply_filters( 'pods_form_ui_field_pick_custom_values', $custom, $name, $value, $options, $pod, $id );
 
@@ -1106,7 +1106,7 @@ class PodsField_Pick extends PodsField {
                     if ( !is_array( $custom ) ) {
                         $data = array();
 
-                        $custom = explode( "\n", $custom );
+                        $custom = explode( "\n", trim( $custom ) );
 
                         foreach ( $custom as $custom_value ) {
                             $custom_label = explode( '|', $custom_value );
@@ -1317,20 +1317,22 @@ class PodsField_Pick extends PodsField {
 
                 $results = $search_data->select( $params );
 
-                if ( !empty( $value ) && $autocomplete && $params[ 'limit' ] < $search_data->total_found() ) {
-                    $ids = $value;
+                if ( $autocomplete && $params[ 'limit' ] < $search_data->total_found() ) {
+                    if ( !empty( $value ) ) {
+                        $ids = $value;
 
-                    if ( is_array( $ids ) )
-                        $ids = implode( ', ', $ids );
+                        if ( is_array( $ids ) )
+                            $ids = implode( ', ', $ids );
 
-                    if ( is_array( $params[ 'where' ] ) )
-                        $params[ 'where' ] = implode( ' AND ', $params[ 'where' ] );
-                    if ( !empty( $params[ 'where' ] ) )
-                        $params[ 'where' ] .= ' AND ';
+                        if ( is_array( $params[ 'where' ] ) )
+                            $params[ 'where' ] = implode( ' AND ', $params[ 'where' ] );
+                        if ( !empty( $params[ 'where' ] ) )
+                            $params[ 'where' ] .= ' AND ';
 
-                    $params[ 'where' ] .= "`t`.`{$search_data->field_id}` IN ( " . $ids . " )";
+                        $params[ 'where' ] .= "`t`.`{$search_data->field_id}` IN ( " . $ids . " )";
 
-                    $results = $search_data->select( $params );
+                        $results = $search_data->select( $params );
+                    }
                 }
                 else
                     $autocomplete = false;
@@ -1361,51 +1363,78 @@ class PodsField_Pick extends PodsField {
                     foreach ( $results as $result ) {
                         $result = get_object_vars( $result );
 
+                        if ( !isset( $result[ $search_data->field_id ] ) || !isset( $result[ $search_data->field_index ] ) )
+                            continue;
+
                         $result[ $search_data->field_index ] = trim( $result[ $search_data->field_index ] );
 
-                        $object = '';
+                        $object = $object_type = '';
 
-                        if ( $wpdb->posts == $search_data->table && isset( $result[ 'post_type' ] ) )
+                        if ( $wpdb->posts == $search_data->table && isset( $result[ 'post_type' ] ) ) {
                             $object = $result[ 'post_type' ];
-                        elseif ( $wpdb->terms == $search_data->table && isset( $result[ 'taxonomy' ] ) )
+                            $object_type = 'post_type';
+                        }
+                        elseif ( $wpdb->terms == $search_data->table && isset( $result[ 'taxonomy' ] ) ) {
                             $object = $result[ 'taxonomy' ];
+                            $object_type = 'taxonomy';
+                        }
 
                         // WPML integration for Post Types and Taxonomies
-                        if ( in_array( $search_data->table, array( $wpdb->posts, $wpdb->terms ) ) && function_exists( 'icl_object_id' ) ) {
-                            $object_id = icl_object_id( $result[ $search_data->field_id ], $object, false );
+                        if ( is_object( $sitepress ) && in_array( $object_type, array( 'post_type', 'taxonomy' ) ) ) {
+                            $translated = false;
 
-                            if ( 0 < $object_id && !in_array( $object_id, $ids ) ) {
-                                $search_data->field_id = $object_id;
+                            if ( 'post_type' == $object_type && $sitepress->is_translated_post_type( $object ) )
+                                $translated = true;
+                            elseif ( 'taxonomy' == $object_type && $sitepress->is_translated_taxonomy( $object ) )
+                                $translated = true;
 
-                                $text = $result[ $search_data->field_index ];
+                            if ( $translated ) {
+                                $object_id = icl_object_id( $result[ $search_data->field_id ], $object, false );
 
-                                if ( $result[ $search_data->field_id ] != $object_id ) {
-                                    if ( $wpdb->posts == $search_data->table )
-                                        $text = trim( get_the_title( $object_id ) );
-                                    elseif ( $wpdb->terms == $search_data->table )
-                                        $text = trim( get_term( $object_id, $object )->name );
+                                if ( 0 < $object_id && !in_array( $object_id, $ids ) ) {
+                                    $text = $result[ $search_data->field_index ];
+
+                                    if ( $result[ $search_data->field_id ] != $object_id ) {
+                                        if ( $wpdb->posts == $search_data->table )
+                                            $text = trim( get_the_title( $object_id ) );
+                                        elseif ( $wpdb->terms == $search_data->table )
+                                            $text = trim( get_term( $object_id, $object )->name );
+                                    }
+
+                                    $result[ $search_data->field_id ] = $object_id;
+                                    $result[ $search_data->field_index ] = $text;
                                 }
-
-                                $result[ $search_data->field_index ] = $text;
+                                else
+                                    continue;
                             }
                         }
                         // Polylang integration for Post Types and Taxonomies
-                        elseif ( in_array( $search_data->table, array( $wpdb->posts, $wpdb->terms ) ) && is_object( $polylang ) && method_exists( $polylang, 'get_translation' ) ) {
-                            $object_id = $polylang->get_translation( $object, $result[ $search_data->field_id ] );
+                        elseif ( is_object( $polylang ) && in_array( $object_type, array( 'post_type', 'taxonomy' ) ) && method_exists( $polylang, 'get_translation' ) ) {
+                            $translated = false;
 
-                            if ( 0 < $object_id && !in_array( $object_id, $ids ) ) {
-                                $search_data->field_id = $object_id;
+                            if ( 'post_type' == $object_type && pll_is_translated_post_type( $object ) )
+                                $translated = true;
+                            elseif ( 'taxonomy' == $object_type && pll_is_translated_taxonomy( $object ) )
+                                $translated = true;
 
-                                $text = $result[ $search_data->field_index ];
+                            if ( $translated ) {
+                                $object_id = $polylang->get_translation( $object, $result[ $search_data->field_id ] );
 
-                                if ( $result[ $search_data->field_id ] != $object_id ) {
-                                    if ( $wpdb->posts == $search_data->table )
-                                        $text = trim( get_the_title( $object_id ) );
-                                    elseif ( $wpdb->terms == $search_data->table )
-                                        $text = trim( get_term( $object_id, $object )->name );
+                                if ( 0 < $object_id && !in_array( $object_id, $ids ) ) {
+                                    $text = $result[ $search_data->field_index ];
+
+                                    if ( $result[ $search_data->field_id ] != $object_id ) {
+                                        if ( $wpdb->posts == $search_data->table )
+                                            $text = trim( get_the_title( $object_id ) );
+                                        elseif ( $wpdb->terms == $search_data->table )
+                                            $text = trim( get_term( $object_id, $object )->name );
+                                    }
+
+                                    $result[ $search_data->field_id ] = $object_id;
+                                    $result[ $search_data->field_index ] = $text;
                                 }
-
-                                $result[ $search_data->field_index ] = $text;
+                                else
+                                    continue;
                             }
                         }
 

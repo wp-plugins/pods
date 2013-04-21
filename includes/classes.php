@@ -18,49 +18,31 @@
 function pods ( $type = null, $id = null, $strict = false ) {
     require_once( PODS_DIR . 'classes/Pods.php' );
 
-    $pod = new Pods( $type, $id );
+    $pod = null;
 
-    if ( true === $strict && null !== $type && !$pod->valid() )
-        return false;
+    if ( null !== $type && null === $id )
+        $pod = pods_cache_get( (string) $type, 'pods-class' );
 
-    return $pod;
+    if ( empty( $pod ) ) {
+        if ( null !== $type )
+            $pod = pods_cache_get( (string) $type, 'pods-class' );
 
-    /* @todo instance caching
-    $identifier = (string) $type . ( is_array( $id ) ? md5( serialize( $id ) ) : (string) $id ) . (string) $strict;
-
-    if ( !isset( $GLOBALS[ 'pods_class_cache' ] ) )
-        $GLOBALS[ 'pods_class_cache' ] = array();
-
-    if ( !isset( $GLOBALS[ 'pods_class_cache' ][ 'pods' ] ) )
-        $GLOBALS[ 'pods_class_cache' ][ 'pods' ] = array();
-
-    if ( isset( $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] ) && is_object( $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] ) ) {
-        /**
-         * @param $pod Pods The Pods object that was cached
-         */
-         /*
-        $pod =& $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ];
-
-        if ( is_array( $id ) )
-            $pod->find( $id );
-    }
-    else {
-        $pod = new Pods( $type, $id );
+        if ( empty( $pod ) )
+            $pod = new Pods( $type );
 
         if ( true === $strict && null !== $type && !$pod->valid() )
             return false;
 
-        if ( !isset( $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] ) )
-            $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] = 1;
-        else
-            $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ]++;
+        if ( null !== $type && $pod->valid() )
+            pods_cache_set( (string) $type, $pod, 'pods-class' );
 
-        // Start caching if the calls become excessive (calling the same reference more than once)
-        if ( 1 < $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] )
-            $GLOBALS[ 'pods_class_cache' ][ 'pods' ][ $identifier ] =& $pod;
+        if ( is_array( $id ) )
+            $pod->find( $id );
+        elseif ( !empty( $id ) )
+            $pod->fetch( $id );
     }
 
-    return $pod;*/
+    return $pod;
 }
 
 /**

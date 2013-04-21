@@ -111,7 +111,7 @@ class PodsField_Avatar extends PodsField {
             )
         );
 
-        if ( !pods_wp_version( '3.5' ) ) {
+        if ( !pods_version_check( 'wp', '3.5' ) ) {
             unset( $options[ self::$type . '_modal_title' ] );
             unset( $options[ self::$type . '_modal_add_button' ] );
 
@@ -193,7 +193,7 @@ class PodsField_Avatar extends PodsField {
         if ( 'plupload' == pods_var( self::$type . '_uploader', $options ) )
             $field_type = 'plupload';
         elseif ( 'attachment' == pods_var( self::$type . '_uploader', $options ) ) {
-            if ( !pods_wp_version( '3.5' ) || !is_admin() ) // @todo test frontend media modal
+            if ( !pods_version_check( 'wp', '3.5' ) || !is_admin() ) // @todo test frontend media modal
                 $field_type = 'attachment';
             else
                 $field_type = 'media';
@@ -238,7 +238,7 @@ class PodsField_Avatar extends PodsField {
      * @return bool
      * @since 2.0
      */
-    public function validate ( &$value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
+    public function validate ( $value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
         // check file size
         // check file extensions
         return true;
@@ -297,7 +297,7 @@ class PodsField_Avatar extends PodsField {
      * @param string $alt Alternate text to use in image tag. Defaults to blank
      * @return string <img> tag for the user's avatar
      */
-    public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt ) {
+    public function get_avatar ( $avatar, $id_or_email, $size, $default = '', $alt ='' ) {
         $_user_ID = 0;
 
         if ( is_numeric( $id_or_email ) && 0 < $id_or_email )

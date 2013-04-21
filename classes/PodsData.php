@@ -586,6 +586,8 @@ class PodsData {
      * @since 2.0
      */
     public function select ( $params ) {
+        global $wpdb;
+
         $cache_key = $results = false;
 
         // Debug purposes
@@ -608,7 +610,7 @@ class PodsData {
 
             // Debug purposes
             if ( ( 1 == pods_var( 'pods_debug_sql', 'get', 0 ) || 1 == pods_var( 'pods_debug_sql_all', 'get', 0 ) ) && is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'pods' ) ) )
-                echo "<textarea cols='100' rows='24'>{$this->sql}</textarea>";
+                echo '<textarea cols="100" rows="24">' . str_replace( array( '@wp_users', '@wp_' ), array( $wpdb->users, $wpdb->prefix ), $this->sql ) . '</textarea>';
 
             if ( empty( $this->sql ) )
                 return array();
@@ -956,7 +958,7 @@ class PodsData {
                         if ( $params->meta_fields )
                             $fieldfield = '`' . $params->index . '`.`' . $params->pod_table_prefix . '`';
                         else
-                            $fieldfield = '`' . $params->pod_table_prefix . '`.' . $params->index . '`';
+                            $fieldfield = '`' . $params->pod_table_prefix . '`.`' . $params->index . '`';
                     }
                     elseif ( !empty( $params->object_fields ) && !isset( $params->object_fields[ $params->index ] ) )
                         $fieldfield = '`' . $params->index . '`.`meta_value`';
@@ -1628,7 +1630,7 @@ class PodsData {
                     $this->id = $this->pod_data[ 'id' ];
                     $this->row[ 'option_id' ] = $this->id;
 
-                    pods_cache_set( $this->pod, $this->row, 0, 'pods_items_' . $this->pod );
+                    pods_cache_set( $this->pod, $this->row, 'pods_items_' . $this->pod, 0 );
                 }
             }
             elseif ( isset( $this->data[ $this->row_number ] ) )
@@ -1802,7 +1804,7 @@ class PodsData {
             }
 
             if ( !empty( $this->pod ) )
-                pods_cache_set( $id, $this->row, 0, 'pods_items_' . $this->pod );
+                pods_cache_set( $id, $this->row, 'pods_items_' . $this->pod, 0 );
         }
 
         $this->row = $this->do_hook( 'fetch', $this->row, $id, $this->row_number );
@@ -1899,7 +1901,7 @@ class PodsData {
                 $params = array_merge( $params, $sql );
 
             if ( 1 == pods_var( 'pods_debug_sql_all', 'get', 0 ) && is_user_logged_in() && ( is_super_admin() || current_user_can( 'delete_users' ) || current_user_can( 'pods' ) ) )
-                echo '<textarea cols="100" rows="24">' . $params->sql . '</textarea>';
+                echo '<textarea cols="100" rows="24">' . str_replace( array( '@wp_users', '@wp_' ), array( $wpdb->users, $wpdb->prefix ), $params->sql ) . '</textarea>';
         }
 
         $params->sql = trim( $params->sql );
@@ -1916,7 +1918,7 @@ class PodsData {
 
         if ( 'INSERT' == strtoupper( substr( $params->sql, 0, 6 ) ) || 'REPLACE' == strtoupper( substr( $params->sql, 0, 7 ) ) )
             $result = $wpdb->insert_id;
-        elseif ( 'SELECT' == strtoupper( substr( $params->sql, 0, 6 ) ) ) {
+        elseif ( preg_match( '/^[\s\r\n\(]*SELECT/', strtoupper( $params->sql ) ) ) {
             $result = (array) $wpdb->last_result;
 
             if ( !empty( $result ) && !empty( $params->results_error ) )
@@ -2381,6 +2383,7 @@ class PodsData {
 
         $tableless_field_types = PodsForm::tableless_field_types();
         $simple_tableless_objects = PodsForm::field_method( 'pick', 'simple_objects' );
+        $file_field_types = PodsForm::file_field_types();
 
         if ( !isset( $this->traversal[ $traverse_recurse[ 'pod' ] ] ) )
             $this->traversal[ $traverse_recurse[ 'pod' ] ] = array();
@@ -2445,6 +2448,8 @@ class PodsData {
 
         if ( 'taxonomy' == $traverse[ 'type' ] )
             $traverse[ 'table_info' ] = $this->api->get_table_info( $traverse[ 'type' ], $traverse[ 'name' ] );
+        elseif ( in_array( $traverse[ 'type' ], $file_field_types ) )
+            $traverse[ 'table_info' ] = $this->api->get_table_info( 'post_type', 'attachment' );
         elseif ( !in_array( $traverse[ 'type' ], $tableless_field_types ) )
             $traverse[ 'table_info' ] = $this->api->get_table_info( $pod_data[ 'type' ], $pod_data[ 'name' ], $pod_data[ 'name' ], $pod_data );
         elseif ( empty( $traverse[ 'table_info' ] ) ) {
@@ -2690,13 +2695,15 @@ class PodsData {
      */
     public function get_sql ( $sql ) {
         global $wpdb;
+
         if ( empty( $sql ) )
             $sql = $this->sql;
 
-        $sql = str_replace( '@wp_users', $wpdb->users, $sql );
-        $sql = str_replace( '@wp_', $wpdb->prefix, $sql );
+        $sql = str_replace( array( '@wp_users', '@wp_' ), array( $wpdb->users, $wpdb->prefix ), $sql );
+
         $sql = str_replace( '{prefix}', '@wp_', $sql );
         $sql = str_replace( '{/prefix/}', '{prefix}', $sql );
+
         return $sql;
     }
 }

@@ -71,7 +71,7 @@ else
 
 $limit_types = trim( str_replace( array( ' ', '.', "\n", "\t", ';' ), array( '', ',', ',', ',' ), $limit_types ), ',' );
 
-if ( pods_wp_version( '3.5' ) ) {
+if ( pods_version_check( 'wp', '3.5' ) ) {
     $mime_types = wp_get_mime_types();
 
     if ( in_array( $limit_file_type, array( 'images', 'audio', 'video' ) ) ) {
@@ -114,7 +114,7 @@ if ( pods_wp_version( '3.5' ) ) {
         }
 
         if ( !empty( $new_limit_types ) )
-            $limit_types = implode( ', ', $new_limit_types );
+            $limit_types = implode( ',', $new_limit_types );
     }
 }
 
@@ -144,7 +144,10 @@ else
                                 continue;
 
                             $thumb = wp_get_attachment_image_src( $val, 'thumbnail', true );
-
+                            
+                            if( is_ssl() )
+                                $thumb[ 0 ] = str_replace( 'http://', 'https://', $thumb[ 0 ] );
+                            
                             $title = $attachment->post_title;
 
                             if ( 0 == $title_editable )
