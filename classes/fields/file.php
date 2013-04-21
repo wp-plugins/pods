@@ -126,7 +126,7 @@ class PodsField_File extends PodsField {
             ),
             self::$type . '_type' => array(
                 'label' => __( 'Restrict File Types', 'pods' ),
-                'default' => 'images',
+                'default' => apply_filters( 'pods_form_ui_field_file_type_default', 'images' ),
                 'type' => 'pick',
                 'data' => apply_filters(
                     'pods_form_ui_field_file_type_options',
@@ -145,7 +145,7 @@ class PodsField_File extends PodsField {
                 'label' => __( 'Allowed File Extensions', 'pods' ),
                 'description' => __( 'Separate file extensions with a comma (ex. jpg,png,mp4,mov)', 'pods' ),
                 'depends-on' => array( self::$type . '_type' => 'other' ),
-                'default' => '',
+                'default' => apply_filters( 'pods_form_ui_field_file_extensions_default', '' ),
                 'type' => 'text'
             ),/*
             self::$type . '_image_size' => array(
@@ -180,7 +180,7 @@ class PodsField_File extends PodsField {
             )
         );
 
-        if ( !pods_wp_version( '3.5' ) ) {
+        if ( !pods_version_check( 'wp', '3.5' ) ) {
             unset( $options[ self::$type . '_modal_title' ] );
             unset( $options[ self::$type . '_modal_add_button' ] );
 
@@ -283,7 +283,7 @@ class PodsField_File extends PodsField {
         elseif ( 'plupload' == pods_var( self::$type . '_uploader', $options ) )
             $field_type = 'plupload';
         elseif ( 'attachment' == pods_var( self::$type . '_uploader', $options ) ) {
-            if ( !pods_wp_version( '3.5' ) || !is_admin() ) // @todo test frontend media modal
+            if ( !pods_version_check( 'wp', '3.5' ) || !is_admin() ) // @todo test frontend media modal
                 $field_type = 'attachment';
             else
                 $field_type = 'media';
@@ -328,7 +328,7 @@ class PodsField_File extends PodsField {
      * @return bool
      * @since 2.0
      */
-    public function validate ( &$value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
+    public function validate ( $value, $name = null, $options = null, $fields = null, $pod = null, $id = null, $params = null ) {
         // check file size
         // check file extensions
         return true;
@@ -658,7 +658,7 @@ class PodsField_File extends PodsField {
 
             $limit_types = trim( str_replace( array( ' ', '.', "\n", "\t", ';' ), array( '', ',', ',', ',' ), $limit_types ), ',' );
 
-            if ( pods_wp_version( '3.5' ) ) {
+            if ( pods_version_check( 'wp', '3.5' ) ) {
                 $mime_types = wp_get_mime_types();
 
                 if ( in_array( $limit_file_type, array( 'images', 'audio', 'video' ) ) ) {
@@ -701,7 +701,7 @@ class PodsField_File extends PodsField {
                     }
 
                     if ( !empty( $new_limit_types ) )
-                        $limit_types = implode( ', ', $new_limit_types );
+                        $limit_types = implode( ',', $new_limit_types );
                 }
             }
 
