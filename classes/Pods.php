@@ -189,7 +189,7 @@ class Pods implements Iterator {
         PodsData::$display_errors =& $this->display_errors;
 
         // Set up page variable
-        if ( pods_strict() ) {
+        if ( pods_strict( false ) ) {
             $this->page = 1;
             $this->pagination = false;
             $this->search = false;
@@ -1132,7 +1132,7 @@ class Pods implements Iterator {
                                 }
 
                                 // Return entire array
-                                if ( false === $params->in_form && false !== $field_exists && in_array( $last_type, $tableless_field_types ) )
+                                if ( false === $params->in_form && false !== $field_exists && ( in_array( $last_type, $tableless_field_types ) && !$simple ) )
                                     $value = $data;
                                 // Return an array of single column values
                                 else {

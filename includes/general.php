@@ -275,14 +275,16 @@ function pods_tableless () {
 /**
  * Determine if Strict Mode is enabled
  *
+ * @param bool $include_debug Whether to include WP_DEBUG in strictness level
+ *
  * @return bool Whether Strict Mode is enabled
  *
  * @since 2.3.5
  */
-function pods_strict () {
+function pods_strict ( $include_debug = true ) {
     if ( defined( 'PODS_STRICT' ) && PODS_STRICT )
         return true;
-    elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG )
+    elseif ( $include_debug && defined( 'WP_DEBUG' ) && WP_DEBUG )
         return true;
     elseif ( defined( 'PODS_STRICT_MODE' ) && PODS_STRICT_MODE ) // @deprecated since 2.3.5
         return true;
@@ -414,25 +416,6 @@ function pods_version_check ( $what, $minimum_version, $comparison = '<=', $maxi
  */
 function pods_helper ( $helper_name, $value = null, $name = null ) {
     return pods()->helper( $helper_name, $value, $name );
-}
-
-/**
- * Get the full URL of the current page
- *
- * @return string
- * @since 1.9.6
- *
- * @deprecated 2.3
- */
-if ( !function_exists( 'get_current_url' ) ) {
-    /**
-     * @return mixed|void
-     */
-    function get_current_url () {
-        $url = pods_current_url();
-
-        return apply_filters( 'get_current_url', $url );
-    }
 }
 
 /**
@@ -631,6 +614,9 @@ function pods_shortcode ( $tags, $content = null ) {
 
     if ( !isset( $pod ) )
         $pod = pods( $tags[ 'name' ], $id );
+
+    if ( empty( $pod ) )
+        return '<p>Pod not found</p>';
 
     $found = 0;
 
