@@ -62,6 +62,8 @@ class Pods_Pages extends PodsComponent {
      * @since 2.0
      */
     public function __construct () {
+        add_shortcode( 'pods-content', array( $this, 'shortcode' ) );
+
         $args = array(
             'label' => 'Pod Pages',
             'labels' => array( 'singular_name' => 'Pod Page' ),
@@ -107,6 +109,33 @@ class Pods_Pages extends PodsComponent {
         }
     }
 
+    /**
+     * Pod Page Content Shortcode support for use anywhere that supports WP Shortcodes
+     *
+     * @param array $tags An associative array of shortcode properties
+     * @param string $content Not currently used
+     *
+     * @return string
+     * @since 2.3.9
+     */
+    public function shortcode ( $tags, $content = null ) {
+        if ( !isset( $tags[ 'page' ] ) || empty( $tags[ 'page' ] ) )
+            $tags[ 'page' ] = null;
+
+        $pods_page = Pods_Pages::exists( $tags[ 'page' ] );
+
+        if ( empty( $pods_page ) )
+            return '<p>Pods Page not found</p>';
+
+        return Pods_Pages::content( true, $pods_page );
+    }
+
+    /**
+     * Disable this Post Type from appearing in the Builder layouts list
+     *
+     * @param array $post_types
+     * @return array
+     */
     public function disable_builder_layout ( $post_types ) {
         $post_types[] = $this->object_type;
 
@@ -193,7 +222,7 @@ class Pods_Pages extends PodsComponent {
     public function remove_row_actions ( $actions, $post ) {
         global $current_screen;
 
-        if ( $this->object_type != $current_screen->post_type )
+        if ( !is_object( $current_screen ) || $this->object_type != $current_screen->post_type )
             return $actions;
 
         if ( isset( $actions[ 'view' ] ) )
@@ -316,14 +345,16 @@ class Pods_Pages extends PodsComponent {
 
         $page_templates[ __( '-- Page Template --', 'pods' ) ] = '';
 
+        $page_templates[ __( 'Custom (uses only Pod Page content)', 'pods' ) ] = '_custom';
+
         if ( !in_array( 'pods.php', $page_templates ) && locate_template( array( 'pods.php', false ) ) )
-            $page_templates[ 'Pods (Pods Default)' ] = 'pods.php';
+            $page_templates[ __( 'Pods (Pods Default)', 'pods' ) ] = 'pods.php';
 
         if ( !in_array( 'page.php', $page_templates ) && locate_template( array( 'page.php', false ) ) )
-            $page_templates[ 'Page (WP Default)' ] = 'page.php';
+            $page_templates[ __( 'Page (WP Default)', 'pods' ) ] = 'page.php';
 
         if ( !in_array( 'index.php', $page_templates ) && locate_template( array( 'index.php', false ) ) )
-            $page_templates[ 'Index (WP Fallback)' ] = 'index.php';
+            $page_templates[ __( 'Index (WP Fallback)', 'pods' ) ] = 'index.php';
 
         ksort( $page_templates );
 
@@ -497,7 +528,7 @@ class Pods_Pages extends PodsComponent {
             if ( is_object( $post ) && $this->object_type == $post->post_type ) {
                 $postdata = array(
                     'ID' => $post_ID,
-                    'post_content' => pods_sanitize( $meta_value )
+                    'post_content' => $meta_value
                 );
 
                 remove_filter( current_filter(), array( $this, __FUNCTION__ ), 10 );
@@ -722,7 +753,7 @@ class Pods_Pages extends PodsComponent {
                     add_filter( 'body_class', array( $this, 'body_class' ), 0, 1 );
                     add_filter( 'status_header', array( $this, 'status_header' ) );
                     add_action( 'after_setup_theme', array( $this, 'precode' ) );
-                    add_action( 'wp', array( $this, 'silence_404' ) );
+                    add_action( 'wp', array( $this, 'silence_404' ), 1 );
 
                     // Genesis theme integration
                     add_action( 'genesis_loop', 'pods_content', 11 );
@@ -836,7 +867,7 @@ class Pods_Pages extends PodsComponent {
                 remove_filter( 'wp_title', array( $this, 'wp_title' ) );
                 remove_filter( 'body_class', array( $this, 'body_class' ) );
                 remove_filter( 'status_header', array( $this, 'status_header' ) );
-                remove_action( 'wp', array( $this, 'silence_404' ) );
+                remove_action( 'wp', array( $this, 'silence_404' ), 1 );
             }
         }
     }
@@ -992,7 +1023,9 @@ class Pods_Pages extends PodsComponent {
 
             do_action( 'pods_page', $template, self::$exists );
 
-            if ( null !== $render_function && is_callable( $render_function ) )
+            if ( '_custom' == $template )
+                pods_content();
+            elseif ( null !== $render_function && is_callable( $render_function ) )
                 call_user_func( $render_function, $template, self::$exists );
             elseif ( ( !defined( 'PODS_DISABLE_DYNAMIC_TEMPLATE' ) || !PODS_DISABLE_DYNAMIC_TEMPLATE ) && is_object( $pods ) && !is_wp_error( $pods ) && isset( $pods->page_template ) && !empty( $pods->page_template ) && '' != locate_template( array( $pods->page_template ), true ) ) {
                 $template = $pods->page_template;
@@ -1014,6 +1047,7 @@ class Pods_Pages extends PodsComponent {
                     $file_name = str_replace( '*', '-w-', implode( '/', $page_path ) . '/' . $last );
                     $sanitized = sanitize_title( $file_name );
 
+                    $default_templates[] = 'pods/' . trim( str_replace( '--', '-', $sanitized ), ' -' ) . '.php';
                     $default_templates[] = 'pods-' . trim( str_replace( '--', '-', $sanitized ), ' -' ) . '.php';
                 }
 

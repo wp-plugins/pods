@@ -120,7 +120,7 @@ class PodsMeta {
 
         add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
         add_action( 'transition_post_status', array( $this, 'save_post_detect_new' ), 10, 3 );
-        add_action( 'save_post', array( $this, 'save_post' ), 10, 2 );
+        add_action( 'save_post', array( $this, 'save_post' ), 10, 3 );
 
         if ( apply_filters( 'pods_meta_handler', true, 'post' ) ) {
             // Handle *_post_meta
@@ -299,6 +299,16 @@ class PodsMeta {
         if ( !isset( self::$queue[ $type ] ) )
             self::$queue[ $type ] = array();
 
+        if ( is_array( $pod ) && !empty( $pod ) && !isset( $pod[ 'name' ] ) ) {
+            $data = array();
+
+            foreach ( $pod as $p ) {
+                $data[] = $this->register( $type, $p );
+            }
+
+            return $data;
+        }
+
         $pod[ 'type' ] = $pod_type;
         $pod = pods_api()->save_pod( $pod, false, self::$object_identifier );
 
@@ -314,6 +324,16 @@ class PodsMeta {
     }
 
     public function register_field ( $pod, $field ) {
+        if ( is_array( $pod ) && !empty( $pod ) && !isset( $pod[ 'name' ] ) ) {
+            $data = array();
+
+            foreach ( $pod as $p ) {
+                $data[] = $this->register_field( $p, $field );
+            }
+
+            return $data;
+        }
+
         $pod = pods_api()->load_pod( array( 'name' => $pod ), false );
 
         if ( !empty( $pod ) ) {
@@ -434,6 +454,14 @@ class PodsMeta {
      * @return mixed|void
      */
     public function group_add ( $pod, $label, $fields, $context = 'normal', $priority = 'default' ) {
+        if ( is_array( $pod ) && !empty( $pod ) && !isset( $pod[ 'name' ] ) ) {
+            foreach ( $pod as $p ) {
+                $this->group_add( $pod, $label, $fields, $context, $priority );
+            }
+
+            return true;
+        }
+
         if ( !is_array( $pod ) ) {
             $_pod = pods_api()->load_pod( array( 'name' => $pod ), false );
 
@@ -539,8 +567,8 @@ class PodsMeta {
             if ( !has_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) ) )
                 add_action( 'add_meta_boxes', array( $this, 'meta_post_add' ) );
 
-            /*if ( !has_action( 'save_post', array( $this, 'save_post' ), 10, 2 ) )
-                add_action( 'save_post', array( $this, 'save_post' ), 10, 2 );*/
+            /*if ( !has_action( 'save_post', array( $this, 'save_post' ), 10, 3 ) )
+                add_action( 'save_post', array( $this, 'save_post' ), 10, 3 );*/
         }
         elseif ( 'taxonomy' == $pod[ 'type' ] ) {
             if ( !has_action( $pod[ 'object' ] . '_edit_form_fields', array( $this, 'meta_taxonomy' ), 10, 2 ) ) {
@@ -713,8 +741,10 @@ class PodsMeta {
             $field_found = false;
 
             foreach ( $group[ 'fields' ] as $field ) {
-                if ( false !== PodsForm::permission( $field[ 'type' ], $field[ 'name' ], $field, $group[ 'fields' ] ) )
+                if ( false !== PodsForm::permission( $field[ 'type' ], $field[ 'name' ], $field, $group[ 'fields' ] ) ) {
                     $field_found = true;
+                    break;
+                }
             }
 
             if ( empty( $group[ 'label' ] ) )
@@ -742,6 +772,8 @@ class PodsMeta {
     public function meta_post ( $post, $metabox ) {
         wp_enqueue_style( 'pods-form' );
         wp_enqueue_script( 'pods' );
+
+        do_action( 'pods_' . __METHOD__, $post );
 
         $hidden_fields = array();
 ?>
@@ -784,6 +816,8 @@ class PodsMeta {
             }
             else {
                 $depends = PodsForm::dependencies( $field, 'pods-meta-' );
+
+            do_action( 'pods_' . __METHOD__ . '_' . $field[ 'name' ], $post, $field, $pod );
         ?>
             <tr class="form-field pods-field <?php echo 'pods-form-ui-row-type-' . $field[ 'type' ] . ' pods-form-ui-row-name-' . Podsform::clean( $field[ 'name' ], true ); ?> <?php echo $depends; ?>">
                 <th scope="row" valign="top"><?php echo PodsForm::label( 'pods_meta_' . $field[ 'name' ], $field[ 'label' ], $field[ 'help' ], $field ); ?></th>
@@ -798,12 +832,15 @@ class PodsMeta {
                 </td>
             </tr>
         <?php
+                do_action( 'pods_' . __METHOD__ . '_' . $field[ 'name' ] . '_post', $post, $field, $pod );
             }
         }
         ?>
     </table>
 
     <?php
+        do_action( 'pods_' . __METHOD__ . '_post', $post );
+
         foreach ( $hidden_fields as $hidden_field ) {
             $field = $hidden_field[ 'field' ];
 
@@ -833,13 +870,16 @@ class PodsMeta {
     /**
      * @param $post_id
      * @param $post
+     * @param $update
      *
      * @return mixed
      */
-    public function save_post ( $post_id, $post ) {
+    public function save_post ( $post_id, $post, $update = null ) {
         $is_new_item = false;
 
-        if ( 'new' == self::$old_post_status )
+        if ( is_bool( $update ) )
+            $is_new_item = $update;
+        elseif ( 'new' == self::$old_post_status )
             $is_new_item = true;
 
         // Reset to avoid manual new post issues
@@ -924,7 +964,7 @@ class PodsMeta {
 
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
-            $data = stripslashes_deep( $data );
+            $data = pods_unslash( (array) $data );
 
             $pod->save( $data, null, null, array( 'is_new_item' => $is_new_item ) );
         }
@@ -1057,7 +1097,7 @@ class PodsMeta {
 
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
-            $data = stripslashes_deep( $data );
+            $data = pods_unslash( (array) $data );
 
             $pod->save( $data );
         }
@@ -1223,7 +1263,7 @@ class PodsMeta {
 
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
-            $data = stripslashes_deep( $data );
+            $data = pods_unslash( (array) $data );
 
             $pod->save( $data );
         }
@@ -1353,7 +1393,7 @@ class PodsMeta {
 
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
-            $data = stripslashes_deep( $data );
+            $data = pods_unslash( (array) $data );
 
             $pod->save( $data );
         }
@@ -1510,13 +1550,18 @@ class PodsMeta {
 
             foreach ( $group[ 'fields' ] as $field ) {
                 if ( false === PodsForm::permission( $field[ 'type' ], $field[ 'name' ], $field, $group[ 'fields' ], null, null ) ) {
-                    if ( pods_var( 'hidden', $field[ 'options' ], false ) )
+                    if ( pods_var( 'hidden', $field[ 'options' ], false ) ) {
                         $field_found = true;
-                    else
+                        break;
+                    }
+                    else {
                         continue;
+                    }
                 }
-                else
+                else {
                     $field_found = true;
+                    break;
+                }
             }
 
             if ( $field_found ) {
@@ -1678,7 +1723,7 @@ class PodsMeta {
 
         if ( !empty( $pod ) ) {
             // Fix for Pods doing it's own sanitization
-            $data = stripslashes_deep( $data );
+            $data = pods_unslash( (array) $data );
 
             $pod->save( $data );
         }

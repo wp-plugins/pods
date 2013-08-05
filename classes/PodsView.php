@@ -255,7 +255,7 @@ class PodsView {
 
         if ( 'transient' == $cache_mode ) {
             if ( true === $key ) {
-                $group_key = like_escape( $group_key );
+                $group_key = pods_sanitize_like( $group_key );
 
                 $wpdb->query( "DELETE FROM `{$wpdb->options}` WHERE option_name LIKE '_transient_{$group_key}%'" );
 
@@ -267,7 +267,7 @@ class PodsView {
         }
         elseif ( 'site-transient' == $cache_mode ) {
             if ( true === $key ) {
-                $group_key = like_escape( $group_key );
+                $group_key = pods_sanitize_like( $group_key );
 
                 $wpdb->query( "DELETE FROM `{$wpdb->options}` WHERE option_name LIKE '_site_transient_{$group_key}%'" );
 
@@ -297,7 +297,7 @@ class PodsView {
      *
      * @return bool|mixed|string|void
      */
-    private static function get_template_part ( $_view, $_data = null ) {
+    public static function get_template_part ( $_view, $_data = null ) {
         /* to be reviewed later, should have more checks and restrictions like a whitelist etc
         if ( 0 === strpos( $_view, 'http://' ) || 0 === strpos( $_view, 'https://' ) ) {
             $_view = apply_filters( 'pods_view_url_include', $_view );
@@ -334,14 +334,20 @@ class PodsView {
      */
     private static function locate_template ( $_view ) {
         if ( is_array( $_view ) ) {
-            $_views = array();
+            if ( !empty( $_view ) ) {
+                if ( isset( $_view[ 0 ] ) && false === strpos( $_view[ 0 ], '.php' ) ) {
+                    $_views = array();
 
-            $_view_count = count( $_view );
+                    $_view_count = count( $_view );
 
-            for ( $_view_x = $_view_count; 0 < $_view_x; $_view_x-- ) {
-                $_view_v = array_slice( $_view, 0, $_view_x );
+                    for ( $_view_x = $_view_count; 0 < $_view_x; $_view_x-- ) {
+                        $_view_v = array_slice( $_view, 0, $_view_x );
 
-                $_views[] = implode( '-', $_view_v ) . '.php';
+                        $_views[] = implode( '-', $_view_v ) . '.php';
+                    }
+                }
+                else
+                    $_views = $_view;
             }
 
             $_view = false;

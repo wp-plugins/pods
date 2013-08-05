@@ -293,6 +293,20 @@ function pods_strict ( $include_debug = true ) {
 }
 
 /**
+ * Determine if Pods API Caching is enabled
+ *
+ * @return bool Whether Pods API Caching is enabled
+ *
+ * @since 2.3.9
+ */
+function pods_api_cache () {
+    if ( defined( 'PODS_API_CACHE' ) && !PODS_API_CACHE )
+        return false;
+
+    return true;
+}
+
+/**
  * Marks a function as deprecated and informs when it has been used.
  *
  * There is a hook deprecated_function_run that will be called that can be used
@@ -444,11 +458,15 @@ function pods_current_url () {
  * @since 2.0
  */
 function is_pod ( $object = null ) {
-    global $pods;
+    global $pods, $post;
+
     if ( is_object( $object ) && isset( $object->pod ) && !empty( $object->pod ) )
         return true;
-    if ( is_object( $pods ) && isset( $pods->pod ) && !empty( $pods->pod ) )
+    elseif ( is_object( $pods ) && isset( $pods->pod ) && !empty( $pods->pod ) )
         return true;
+    elseif ( is_object( $post ) && isset( $post->post_type ) && pods_api()->pod_exists( $post->post_type, 'post_type' ) )
+        return true;
+
     return false;
 }
 
@@ -1253,6 +1271,30 @@ function pods_transient_clear ( $key = true ) {
 }
 
 /**
+ * Scope variables and include a template like get_template_part that's child-theme aware
+ *
+ * @see get_template_part
+ *
+ * @param string|array $template Template names (see get_template_part)
+ * @param array $data Data to scope to the include
+ * @param bool $return Whether to return the output (echo by default)
+ * @return string|null Template output
+ *
+ * @since 2.3.9
+ */
+function pods_template_part ( $template, $data = null, $return = false ) {
+    $part = PodsView::get_template_part( $template, $data );
+
+    if ( !$return ) {
+        echo $part;
+
+        return null;
+    }
+
+    return $part;
+}
+
+/**
  * Add a new Pod outside of the DB
  *
  * @see PodsMeta::register
@@ -1279,7 +1321,7 @@ function pods_register_type ( $type, $name, $object = null ) {
  *
  * @see PodsMeta::register_field
  *
- * @param string $pod The pod name
+ * @param string|array $pod The pod name or array of pod names
  * @param string $name The name of the Pod
  * @param array $object (optional) Pod array, including any 'fields' arrays
  *
