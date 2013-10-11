@@ -146,6 +146,15 @@ class PodsField_DateTime extends PodsField {
             );
         }
 
+		$options[ self::$type . '_format' ][ 'data' ] = apply_filters( 'pods_form_ui_field_date_format_options', $options[ self::$type . '_format' ][ 'data' ] );
+		$options[ self::$type . '_format' ][ 'default' ] = apply_filters( 'pods_form_ui_field_date_format_default', $options[ self::$type . '_format' ][ 'default' ] );
+
+		$options[ self::$type . '_time_type' ][ 'default' ] = apply_filters( 'pods_form_ui_field_time_format_type_default', $options[ self::$type . '_time_type' ][ 'default' ] );
+		$options[ self::$type . '_time_format' ][ 'data' ] = apply_filters( 'pods_form_ui_field_time_format_options', $options[ self::$type . '_time_format' ][ 'data' ] );
+		$options[ self::$type . '_time_format' ][ 'default' ] = apply_filters( 'pods_form_ui_field_time_format_default', $options[ self::$type . '_time_format' ][ 'default' ] );
+		$options[ self::$type . '_time_format_24' ][ 'data' ] = apply_filters( 'pods_form_ui_field_time_format_24_options', $options[ self::$type . '_time_format_24' ][ 'data' ] );
+		$options[ self::$type . '_time_format_24' ][ 'default' ] = apply_filters( 'pods_form_ui_field_time_format_24_default', $options[ self::$type . '_time_format_24' ][ 'default' ] );
+
         return $options;
     }
 
@@ -326,6 +335,16 @@ class PodsField_DateTime extends PodsField {
             'hh_mm_ss' => 'h:i:s'
         );
 
+        $time_format_24 = array(
+			'hh_mm' => 'H:i',
+			'hh_mm_ss' => 'H:i:s'
+        );
+
+		$date_format = apply_filters( 'pods_form_ui_field_date_formats', $date_format );
+
+		$time_format = apply_filters( 'pods_form_ui_field_time_formats', $time_format );
+		$time_format_24 = apply_filters( 'pods_form_ui_field_time_formats_24', $time_format_24 );
+
         $format_value = pods_var( self::$type . '_format', $options, 'ymd_dash', null, true );
 
         $format = $date_format[ $format_value ];
@@ -334,7 +353,7 @@ class PodsField_DateTime extends PodsField {
             if ( 12 == pods_var( self::$type . '_time_type', $options ) )
                 $format .= ' ' . $time_format[ pods_var( self::$type . '_time_format', $options, 'hh_mm', null, true ) ];
             else
-                $format .= ' ' . str_replace( array( 'h:', 'g:' ), 'H:', $time_format[ pods_var( self::$type . '_time_format', $options, 'hh_mm', null, true ) ] );
+                $format .= ' ' . $time_format_24[ pods_var( self::$type . '_time_format_24', $options, 'hh_mm', null, true ) ];
         }
 
         return $format;
@@ -347,12 +366,22 @@ class PodsField_DateTime extends PodsField {
      * @return DateTime
      */
     public function createFromFormat ( $format, $date ) {
-        if ( method_exists( 'DateTime', 'createFromFormat' ) ) {
-            $datetimezone = new DateTimeZone( timezone_name_from_abbr( '', get_option( 'gmt_offset' ) * 60 * 60, 0 ) );
+        $datetime = false;
 
-            $datetime = DateTime::createFromFormat( $format, (string) $date, $datetimezone );
+        if ( method_exists( 'DateTime', 'createFromFormat' ) ) {
+            $timezone = get_option( 'timezone_string' );
+
+            if ( empty( $timezone ) )
+                $timezone = timezone_name_from_abbr( '', get_option( 'gmt_offset' ) * HOUR_IN_SECONDS, 0 );
+
+            if ( !empty( $timezone ) ) {
+                $datetimezone = new DateTimeZone( $timezone );
+
+                $datetime = DateTime::createFromFormat( $format, (string) $date, $datetimezone );
+            }
         }
-        else
+
+        if ( false === $datetime )
             $datetime = new DateTime( date_i18n( 'Y-m-d H:i:s', strtotime( (string) $date ) ) );
 
         return apply_filters( 'pods_form_ui_field_datetime_formatter', $datetime, $format, $date );

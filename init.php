@@ -3,7 +3,7 @@
 Plugin Name: Pods - Custom Content Types and Fields
 Plugin URI: http://pods.io/
 Description: Pods is a framework for creating, managing, and deploying customized content types and fields
-Version: 2.3.9
+Version: 2.3.10
 Author: Pods Framework Team
 Author URI: http://pods.io/about/
 Text Domain: pods
@@ -37,25 +37,30 @@ if ( defined( 'PODS_VERSION' ) || defined( 'PODS_DIR' ) ) {
 }
 else {
     // Current version
-    define( 'PODS_VERSION', '2.3.9' );
+    define( 'PODS_VERSION', '2.3.10-rc-2' );
 
     // Version tracking between DB updates themselves
     define( 'PODS_DB_VERSION', '2.3.5' );
 
-    if ( !defined( 'PODS_GITHUB_UPDATE' ) )
+    if ( !defined( 'PODS_GITHUB_UPDATE' ) ) {
         define( 'PODS_GITHUB_UPDATE', false );
+	}
 
-    if ( !defined( 'PODS_GITHUB_BRANCH' ) )
+    if ( !defined( 'PODS_GITHUB_BRANCH' ) ) {
         define( 'PODS_GITHUB_BRANCH', '2.x' );
+	}
 
-    if ( !defined( 'PODS_WP_VERSION_MINIMUM' ) )
+    if ( !defined( 'PODS_WP_VERSION_MINIMUM' ) ) {
         define( 'PODS_WP_VERSION_MINIMUM', '3.4' );
+	}
 
-    if ( !defined( 'PODS_PHP_VERSION_MINIMUM' ) )
+    if ( !defined( 'PODS_PHP_VERSION_MINIMUM' ) ) {
         define( 'PODS_PHP_VERSION_MINIMUM', '5.2.4' );
+	}
 
-    if ( !defined( 'PODS_MYSQL_VERSION_MINIMUM' ) )
+    if ( !defined( 'PODS_MYSQL_VERSION_MINIMUM' ) ) {
         define( 'PODS_MYSQL_VERSION_MINIMUM', '5.0' );
+	}
 
     define( 'PODS_SLUG', plugin_basename( __FILE__ ) );
     define( 'PODS_URL', plugin_dir_url( __FILE__ ) );
@@ -123,8 +128,9 @@ else {
         }
 
         if ( !defined( 'SHORTINIT' ) || !SHORTINIT ) {
-            if ( !defined( 'PODS_DEPRECATED' ) || PODS_DEPRECATED )
+            if ( pods_allow_deprecated() ) {
                 require_once( PODS_DIR . 'deprecated/deprecated.php' );
+			}
 
             if ( false !== pods_compatibility_check() ) {
                 $pods_form = pods_form();

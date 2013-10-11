@@ -178,6 +178,19 @@ class PodsForm {
      * @since 2.0
      */
     public static function field ( $name, $value, $type = 'text', $options = null, $pod = null, $id = null ) {
+		// Take a field array
+		if ( is_array( $name ) ) {
+			$options = $name;
+
+			if ( is_object( $type ) ) {
+				$pod = $type;
+				$id = $options;
+			}
+
+			$name = pods_var_raw( 'name', $options );
+			$type = pods_var_raw( 'type', $options );
+		}
+
         $options = self::options( $type, $options );
 
         if ( null === $value || ( '' === $value && 'boolean' == $type ) || ( !empty( $pod ) && empty( $id ) ) )
@@ -1008,7 +1021,7 @@ class PodsForm {
         if ( false !== $noarray )
             $input = preg_replace( '/\[\d*\]/', '-', $input );
         $output = str_replace( array( '[', ']' ), '-', strtolower( $input ) );
-        $output = preg_replace( '/([^a-z0-9-_])/', '', $output );
+        $output = preg_replace( '/([^a-z0-9\-_])/', '', $output );
         $output = trim( str_replace( array( '__', '_', '--' ), '-', $output ), '-' );
         $output = str_replace( '00000', '--1', $output );
         if ( false !== $db_field )
@@ -1076,6 +1089,7 @@ class PodsForm {
 
         $content_dir = realpath( WP_CONTENT_DIR );
         $plugins_dir = realpath( WP_PLUGIN_DIR );
+        $muplugins_dir = realpath( WPMU_PLUGIN_DIR );
         $abspath_dir = realpath( ABSPATH );
 
         if ( !class_exists( $class_name ) ) {
@@ -1088,7 +1102,7 @@ class PodsForm {
                 $file = str_replace( '../', '', apply_filters( 'pods_form_field_include', PODS_DIR . 'classes/fields/' . basename( $field_type ) . '.php', $field_type ) );
                 $file = realpath( $file );
 
-                if ( file_exists( $file ) && ( 0 === strpos( $file, $content_dir ) || 0 === strpos( $file, $plugins_dir ) || 0 === strpos( $file, $abspath_dir ) ) )
+                if ( file_exists( $file ) && ( 0 === strpos( $file, $content_dir ) || 0 === strpos( $file, $plugins_dir ) || 0 === strpos( $file, $muplugins_dir ) || 0 === strpos( $file, $abspath_dir ) ) )
                     include_once $file;
             }
         }
@@ -1197,6 +1211,10 @@ class PodsForm {
             'color',
             'slug'
         );
+
+		if ( pods_developer() ) {
+			$field_types[] = 'html';
+		}
 
         $field_types = array_merge( $field_types, array_keys( self::$field_types ) );
 
@@ -1312,5 +1330,18 @@ class PodsForm {
         $field_types = array( 'code', 'paragraph', 'slug','password', 'text', 'wysiwyg' );
 
         return apply_filters( 'pods_text_field_types', $field_types );
+    }
+
+    /**
+     * Get list of available text field types
+     *
+     * @return array Text field types
+     *
+     * @since 2.3
+     */
+    public static function block_field_types () {
+        $field_types = array( 'html', 'section' );
+
+        return apply_filters( 'pods_block_field_types', $field_types );
     }
 }
