@@ -66,7 +66,7 @@ class PodsField_Pick extends PodsField {
      * @var \PodsAPI
      * @since 2.3
      */
-    private static $api = false;
+    protected static $api = false;
 
     /**
      * Setup related objects list
@@ -136,10 +136,20 @@ class PodsField_Pick extends PodsField {
                         'checkbox' => __( 'Checkboxes', 'pods' ),
                         'multiselect' => __( 'Multi Select', 'pods' ),
                         'autocomplete' => __( 'Autocomplete', 'pods' )
-                    ) + ( ( pods_developer() && 1 == 0 ) ? array( 'flexible' => __( 'Flexible', 'pods' ) ) : array() )
+                    ) + ( ( pods_developer() && 1 == 0 ) ? array( 'flexible' => __( 'Flexible', 'pods' ) ) : array() ) // Disable for now
                 ),
                 'dependency' => true
             ),
+			'pick_select_text' => array(
+                'label' => __( 'Default Select Text', 'pods' ),
+                'help' => __( 'This is the text use for the default "no selection" dropdown item, if empty, it will default to "-- Select One --"', 'pods' ),
+                'depends-on' => array(
+					'pick_format_type' => 'single',
+					'pick_format_single' => 'dropdown'
+				),
+                'default' => '',
+                'type' => 'text'
+			),
             'pick_limit' => array(
                 'label' => __( 'Selection Limit', 'pods' ),
                 'help' => __( 'help', 'pods' ),
@@ -301,6 +311,9 @@ class PodsField_Pick extends PodsField {
             // Pods
             $pod_options = array();
 
+			// Include PodsMeta if not already included
+			pods_meta();
+
             // Advanced Content Types
             $_pods = PodsMeta::$advanced_content_types;
 
@@ -442,6 +455,20 @@ class PodsField_Pick extends PodsField {
                 'group' => __( 'Predefined Lists', 'pods' ),
                 'simple' => true,
                 'data_callback' => array( $this, 'data_us_states' )
+            );
+
+            self::$related_objects[ 'days_of_week' ] = array(
+                'label' => __( 'Calendar - Days of Week', 'pods' ),
+                'group' => __( 'Predefined Lists', 'pods' ),
+                'simple' => true,
+                'data_callback' => array( $this, 'data_days_of_week' )
+            );
+
+            self::$related_objects[ 'months_of_year' ] = array(
+                'label' => __( 'Calendar - Months of Year', 'pods' ),
+                'group' => __( 'Predefined Lists', 'pods' ),
+                'simple' => true,
+                'data_callback' => array( $this, 'data_months_of_year' )
             );
 
             do_action( 'pods_form_ui_field_pick_related_objects_predefined' );
@@ -1096,6 +1123,58 @@ class PodsField_Pick extends PodsField {
         return $labels;
     }
 
+	/**
+	 * Get available items from a relationship field
+	 *
+	 * @param array|string $field Field array or field name
+	 * @param array $options [optional] Field options array overrides
+	 * @param array $object_params [optional] Additional get_object_data options
+	 *
+	 * @return array An array of available items from a relationship field
+	 */
+	public function get_field_data( $field, $options = array(), $object_params = array() ) {
+
+		// Handle field array overrides
+		if ( is_array( $field ) ) {
+			$options = array_merge( $field, $options );
+		}
+
+		// Get field name from array
+		$field = pods_var_raw( 'name', $options, $field, null, true );
+
+		// Field name or options not set
+		if ( empty( $field ) || empty( $options ) ) {
+			return array();
+		}
+
+		// Options normalization
+		$options = array_merge( $options, pods_var_raw( 'options', $options, array(), null, true ) );
+
+		// Setup object params
+        $object_params = array_merge(
+			array(
+				'name' => $field, // The name of the field
+				'options' => $options, // Field options
+			),
+			$object_params
+        );
+
+		// Get data override
+        $data = pods_var_raw( 'data', $options, null, null, true );
+
+		// Return data override
+        if ( null !== $data ) {
+            $data = (array) $data;
+		}
+		// Get object data
+        else {
+            $data = $this->get_object_data( $object_params );
+		}
+
+		return $data;
+
+	}
+
     /**
      * Get data from relationship objects
      *
@@ -1103,7 +1182,7 @@ class PodsField_Pick extends PodsField {
      *
      * @return array|bool Object data
      */
-    private function get_object_data ( $object_params = null ) {
+    public function get_object_data ( $object_params = null ) {
         global $wpdb, $polylang, $sitepress, $icl_adjust_id_url_filter_off;
 
         $current_language = false;
@@ -1124,9 +1203,10 @@ class PodsField_Pick extends PodsField {
                 'id' => '', // Item ID
                 'context' => '', // Data context
                 'data_params' => array(
-                    'query' => ''
+                    'query' => '' // Query being searched
                 ),
-                'page' => 0
+                'page' => 1, // Page number of results to get
+				'limit' => 0 // How many data items to limit to (autocomplete defaults to 30, set to -1 or 1+ to override)
             ),
             $object_params
         );
@@ -1139,6 +1219,7 @@ class PodsField_Pick extends PodsField {
         $context = $object_params[ 'context' ];
         $data_params = $object_params[ 'data_params' ] = (array) $object_params[ 'data_params' ];
         $page = min( 1, (int) $object_params[ 'page' ] );
+        $limit = (int) $object_params[ 'limit' ];
 
         if ( isset( $options[ 'options' ] ) ) {
             $options = array_merge( $options, $options[ 'options' ] );
@@ -1151,6 +1232,8 @@ class PodsField_Pick extends PodsField {
 
         if ( !isset( $options[ 'pick_object' ] ) )
             $data = pods_var_raw( 'data', $options, array(), null, true );
+
+		$simple = false;
 
         if ( null === $data ) {
             $data = array();
@@ -1184,15 +1267,22 @@ class PodsField_Pick extends PodsField {
                     }
                     else
                         $data = $custom;
+
+					$simple = true;
                 }
             }
-            elseif ( isset( self::$related_objects[ $options[ 'pick_object' ] ] ) && isset( self::$related_objects[ $options[ 'pick_object' ] ][ 'data' ] ) && !empty( self::$related_objects[ $options[ 'pick_object' ] ][ 'data' ] ) )
+            elseif ( isset( self::$related_objects[ $options[ 'pick_object' ] ] ) && isset( self::$related_objects[ $options[ 'pick_object' ] ][ 'data' ] ) && !empty( self::$related_objects[ $options[ 'pick_object' ] ][ 'data' ] ) ) {
                 $data = self::$related_objects[ $options[ 'pick_object' ] ][ 'data' ];
+
+				$simple = true;
+			}
             elseif ( isset( self::$related_objects[ $options[ 'pick_object' ] ] ) && isset( self::$related_objects[ $options[ 'pick_object' ] ][ 'data_callback' ] ) && is_callable( self::$related_objects[ $options[ 'pick_object' ] ][ 'data_callback' ] ) ) {
                 $data = call_user_func_array(
                     self::$related_objects[ $options[ 'pick_object' ] ][ 'data_callback' ],
                     array( $name, $value, $options, $pod, $id )
                 );
+
+				$simple = true;
 
                 // Cache data from callback
                 if ( !empty( $data ) )
@@ -1229,7 +1319,9 @@ class PodsField_Pick extends PodsField {
                     'where' => pods_var_raw( 'pick_where', $options, (array) $options[ 'table_info' ][ 'where_default' ], null, true ),
                     'orderby' => pods_var_raw( 'pick_orderby', $options, null, null, true ),
                     'groupby' => pods_var_raw( 'pick_groupby', $options, null, null, true ),
-                    //'having' => pods_var_raw( 'pick_having', $options, null, null, true )
+                    //'having' => pods_var_raw( 'pick_having', $options, null, null, true ),
+					'pagination' => false,
+					'search' => false
                 );
 
                 if ( in_array( $options[ 'pick_object' ], array( 'site', 'network' ) ) )
@@ -1298,7 +1390,11 @@ class PodsField_Pick extends PodsField {
                     $params[ 'select' ] .= ', ' . $options[ 'table_info' ][ 'field_parent_select' ];
 
                 if ( $autocomplete ) {
-                    $params[ 'limit' ] = apply_filters( 'pods_form_ui_field_pick_autocomplete_limit', 30, $name, $value, $options, $pod, $id, $object_params );
+					if ( 0 == $limit ) {
+						$limit = 30;
+					}
+
+                    $params[ 'limit' ] = apply_filters( 'pods_form_ui_field_pick_autocomplete_limit', $limit, $name, $value, $options, $pod, $id, $object_params );
                     $params[ 'page' ] = $page;
 
                     if ( 'admin_ajax_relationship' == $context ) {
@@ -1347,6 +1443,10 @@ class PodsField_Pick extends PodsField {
                         $params[ 'orderby' ] = $orderby;
                     }
                 }
+				elseif ( 0 < $limit ) {
+                    $params[ 'limit' ] = $limit;
+                    $params[ 'page' ] = $page;
+				}
 
                 $extra = '';
 
@@ -1383,6 +1483,10 @@ class PodsField_Pick extends PodsField {
                 if ( $autocomplete && $params[ 'limit' ] < $search_data->total_found() ) {
                     if ( !empty( $value ) ) {
                         $ids = $value;
+
+						if ( is_array( $ids ) && isset( $ids[ 0 ] ) && is_array( $ids[ 0 ] ) ) {
+							$ids = wp_list_pluck( $ids, $search_data->field_id );
+						}
 
                         if ( is_array( $ids ) )
                             $ids = implode( ', ', $ids );
@@ -1538,6 +1642,18 @@ class PodsField_Pick extends PodsField {
                     }
                 }
             }
+
+			if ( $simple && 'admin_ajax_relationship' == $context ) {
+				$found_data = array();
+
+				foreach ( $data as $k => $v ) {
+					if ( false !== stripos( $v, $data_params[ 'query' ] ) || false !== stripos( $k, $data_params[ 'query' ] ) ) {
+						$found_data[ $k ] = $v;
+					}
+				}
+
+				$data = $found_data;
+			}
         }
 
         if ( 'admin_ajax_relationship' == $context ) {
@@ -1563,10 +1679,7 @@ class PodsField_Pick extends PodsField {
      * @since 2.3
      */
     public function admin_ajax_relationship () {
-        if ( false === headers_sent() ) {
-            if ( '' == session_id() )
-                @session_start();
-        }
+		pods_session_start();
 
         // Sanitize input
         $params = pods_unslash( (array) $_POST );
@@ -2193,5 +2306,53 @@ class PodsField_Pick extends PodsField {
         );
 
         return apply_filters( 'pods_form_ui_field_pick_' . __FUNCTION__, $data, $name, $value, $options, $pod, $id );
+    }
+
+    /**
+     * Data callback for US States
+     *
+     * @param string $name The name of the field
+     * @param string|array $value The value of the field
+     * @param array $options Field options
+     * @param array $pod Pod data
+     * @param int $id Item ID
+     *
+     * @return array
+     *
+     * @since 2.3
+     */
+    public function data_days_of_week ( $name = null, $value = null, $options = null, $pod = null, $id = null ) {
+
+		/**
+		 * @var WP_Locale
+		 */
+		global $wp_locale;
+
+		return $wp_locale->weekday;
+
+    }
+
+    /**
+     * Data callback for US States
+     *
+     * @param string $name The name of the field
+     * @param string|array $value The value of the field
+     * @param array $options Field options
+     * @param array $pod Pod data
+     * @param int $id Item ID
+     *
+     * @return array
+     *
+     * @since 2.3
+     */
+    public function data_months_of_year ( $name = null, $value = null, $options = null, $pod = null, $id = null ) {
+
+		/**
+		 * @var WP_Locale
+		 */
+		global $wp_locale;
+
+		return $wp_locale->month;
+
     }
 }

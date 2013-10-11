@@ -173,7 +173,7 @@ class Pods_Helpers extends PodsComponent {
     function remove_row_actions ( $actions, $post ) {
         global $current_screen;
 
-        if ( $this->object_type != $current_screen->post_type )
+        if ( !is_object( $current_screen ) || $this->object_type != $current_screen->post_type )
             return $actions;
 
         if ( isset( $actions[ 'view' ] ) )
@@ -337,7 +337,7 @@ class Pods_Helpers extends PodsComponent {
                     $revisions = true;
                 }
 
-                wp_update_post( $postdata );
+                wp_update_post( (object) $postdata ); // objects will be automatically sanitized
 
                 if ( $revisions )
                     add_action( 'pre_post_update', 'wp_save_post_revision' );
