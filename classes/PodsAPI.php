@@ -2118,8 +2118,12 @@ class PodsAPI {
                 $field[ 'pick_val' ] = $field[ 'options' ][ 'pick_table' ];
                 $field[ 'pick_object' ] = 'table';
             }
-            elseif ( false === strpos( $field[ 'pick_object' ], '-' ) && !in_array( $field[ 'pick_object' ], array( 'pod', 'post_type', 'taxonomy' ) ) )
+            elseif ( false === strpos( $field[ 'pick_object' ], '-' ) && !in_array( $field[ 'pick_object' ], array( 'pod', 'post_type', 'taxonomy' ) ) ) {
                 $field[ 'pick_val' ] = '';
+			}
+			elseif ( 'custom-simple' == $field[ 'pick_object' ] ) {
+                $field[ 'pick_val' ] = '';
+			}
 
             $field[ 'options' ][ 'pick_object' ] = $field[ 'pick_object' ];
             $field[ 'options' ][ 'pick_val' ] = $field[ 'pick_val' ];
@@ -2287,10 +2291,10 @@ class PodsAPI {
 
         if ( $table_operation && 'table' == $pod[ 'storage' ] && !pods_tableless() ) {
             if ( !empty( $old_id ) ) {
-                if ( $field[ 'type' ] != $old_type && empty( $definition ) )
+                if ( ( $field[ 'type' ] != $old_type || $old_simple != $simple ) && empty( $definition ) )
                     pods_query( "ALTER TABLE `@wp_pods_{$params->pod}` DROP COLUMN `{$old_name}`", false );
                 elseif ( 0 < strlen( $definition ) ) {
-                    if ( $old_name != $field[ 'name' ] ) {
+                    if ( $old_name != $field[ 'name' ] || $old_simple != $simple ) {
                         $test = false;
 
                         if ( 0 < strlen( $old_definition ) )
@@ -2838,6 +2842,35 @@ class PodsAPI {
 
             unset( $params->data );
         }
+
+		/* // @todo for issue #1832
+		 * if ( !empty( $object_fields ) ) {
+			foreach ( $object_fields as $field => $field_data ) {
+				if ( in_array( $field, $fields_active ) ) {
+					continue;
+				}
+				elseif ( !isset( $field_data[ 'default' ] ) || strlen( $field_data[ 'default' ] ) < 1 ) {
+					continue;
+				}
+
+				$object_fields[ $field ][ 'value' ] = $field_data[ 'default' ];
+				$fields_active[] = $field;
+			}
+		}
+
+		if ( !empty( $fields ) ) {
+			foreach ( $fields as $field => $field_data ) {
+				if ( in_array( $field, $fields_active ) ) {
+					continue;
+				}
+				elseif ( !isset( $field_data[ 'default' ] ) || strlen( $field_data[ 'default' ] ) < 1 ) {
+					continue;
+				}
+
+				$fields[ $field ][ 'value' ] = $field_data[ 'default' ];
+				$fields_active[] = $field;
+			}
+		}*/
 
         if ( 'pod' == $pod[ 'type' ] ) {
             if ( empty( $params->id ) && !in_array( 'created', $fields_active ) && isset( $fields[ 'created' ] ) ) {
