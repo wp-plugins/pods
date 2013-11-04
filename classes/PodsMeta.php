@@ -1035,8 +1035,8 @@ class PodsMeta {
 			if ( empty( $group[ 'fields' ] ) )
 				continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1121,8 +1121,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1195,8 +1195,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1301,8 +1301,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1393,8 +1393,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1466,8 +1466,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1577,8 +1577,8 @@ class PodsMeta {
 				continue;
 			}
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] ) {
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] ) {
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				}
 				elseif ( self::$current_pod->id() != $id ) {
@@ -1656,8 +1656,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1720,8 +1720,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1847,7 +1847,7 @@ class PodsMeta {
             if ( is_object( $comment ) )
                 $id = $comment->comment_ID;
 
-            if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $metabox[ 'args' ][ 'group' ][ 'pod' ][ 'name' ] )
+            if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $metabox[ 'args' ][ 'group' ][ 'pod' ][ 'name' ] )
                 self::$current_pod = pods( $metabox[ 'args' ][ 'group' ][ 'pod' ][ 'name' ], $id, true );
 			elseif ( self::$current_pod->id() != $id )
 				self::$current_pod->fetch( $id );
@@ -1918,8 +1918,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -1977,8 +1977,8 @@ class PodsMeta {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
 
-			if ( null === $pod || $pod->id() != $id ) {
-				if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
+			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
+				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
 					self::$current_pod = pods( $group[ 'pod' ][ 'name' ], $id, true );
 				elseif ( self::$current_pod->id() != $id )
 					self::$current_pod->fetch( $id );
@@ -2490,11 +2490,6 @@ class PodsMeta {
         foreach ( $meta_keys as $meta_k ) {
             if ( !empty( $pod ) ) {
                 if ( isset( $pod->fields[ $meta_k ] ) ) {
-                    if ( empty( $pod->id ) ) {
-                        $pod->fetch( $object_id );
-                        $pod->id = $object_id;
-                    }
-
                     $key_found = true;
 
                     $meta_cache[ $meta_k ] = $pod->field( array( 'name' => $meta_k, 'single' => $single, 'get_meta' => true ) );
@@ -2510,11 +2505,6 @@ class PodsMeta {
                         unset( $meta_cache[ '_pods_' . $meta_k ] );
                 }
                 elseif ( false !== strpos( $meta_k, '.' ) ) {
-                    if ( empty( $pod->id ) ) {
-                        $pod->fetch( $object_id );
-                        $pod->id = $object_id;
-                    }
-
                     $key_found = true;
 
                     $first = current( explode( '.', $meta_k ) );
