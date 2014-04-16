@@ -56,6 +56,7 @@ $plupload_init = array(
 $limit_file_type = pods_var( $form_field_type . '_type', $options, 'images' );
 
 $title_editable = pods_var( $form_field_type . '_edit_title', $options, 0 );
+$linked = pods_var( $form_field_type . '_linked', $options, 0 );
 
 if ( 'images' == $limit_file_type )
     $limit_types = 'jpg,jpeg,png,gif';
@@ -149,7 +150,9 @@ else
             if ( 0 == $title_editable )
                 $title = basename( $attachment->guid );
 
-            echo $field_file->markup( $attributes, $file_limit, $title_editable, $val, $thumb[ 0 ], $title );
+			$link = wp_get_attachment_url( $attachment->ID );
+
+            echo $field_file->markup( $attributes, $file_limit, $title_editable, $val, $thumb[ 0 ], $title, $linked, $link );
         }
         ?></ul>
 
@@ -159,7 +162,7 @@ else
 </div>
 
 <script type="text/x-handlebars" id="<?php echo $css_id; ?>-handlebars">
-    <?php echo $field_file->markup( $attributes, $file_limit, $title_editable ); ?>
+    <?php echo $field_file->markup( $attributes, $file_limit, $title_editable, null, null, null, $linked ); ?>
 </script>
 
 <script type="text/x-handlebars" id="<?php echo $css_id; ?>-progress-template">
@@ -188,8 +191,10 @@ else
             <?php } ?>
 
         // hook delete links
-        $( '#<?php echo esc_js( $css_id ); ?>' ).on( 'click', 'li.pods-file-delete', function () {
-            var podsfile = $( this ).parent().parent();
+        $( '#<?php echo esc_js( $css_id ); ?>' ).on( 'click', 'li.pods-file-delete a', function ( e ) {
+			e.preventDefault();
+
+            var podsfile = $( this ).parent().parent().parent();
             podsfile.slideUp( function () {
                 // check to see if this was the only entry
                 if ( podsfile.parent().children().length == 1 ) { // 1 because we haven't removed our target yet
@@ -280,7 +285,8 @@ else
                 var binding = {
                     id : json.ID,
                     icon : json.thumbnail,
-                    name : json.post_title
+                    name : json.post_title,
+                    link : json.link
                 };
 
                 var tmpl = Handlebars.compile( $( 'script#<?php echo esc_js( $css_id ); ?>-handlebars' ).html() );

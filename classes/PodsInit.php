@@ -123,7 +123,7 @@ class PodsInit {
         if ( !empty( self::$version ) ) {
             add_action( 'plugins_loaded', array( $this, 'load_components' ), 11 );
 
-            add_action( 'setup_theme', array( $this, 'load_meta' ), 14 );
+			add_action( 'setup_theme', array( $this, 'load_meta' ), 14 );
 
             add_action( 'init', array( $this, 'core' ), 11 );
 
@@ -344,7 +344,15 @@ class PodsInit {
 			 */
 			global $wp_query;
 
-			$reserved_query_vars = array_keys( $wp_query->fill_query_vars( array() ) );
+			$reserved_query_vars = array(
+				'post_type',
+				'taxonomy',
+				'output'
+			);
+
+			if ( is_object( $wp_query ) ) {
+				$reserved_query_vars = array_merge( $reserved_query_vars, array_keys( $wp_query->fill_query_vars( array() ) ) );
+			}
 
             $pods_cpt_ct = array(
                 'post_types' => array(),
@@ -429,6 +437,12 @@ class PodsInit {
                     $cpt_supported[ 'yarpp_support' ] = (boolean) pods_var( 'supports_yarpp_support', $post_type, false );
 				}
 
+				// Jetpack Support
+				if ( class_exists( 'Jetpack' ) ) {
+                    $cpt_supported[ 'supports_jetpack_publicize' ] = (boolean) pods_var( 'supports_jetpack_publicize', $post_type, false );
+                    $cpt_supported[ 'supports_jetpack_markdown' ] = (boolean) pods_var( 'supports_jetpack_markdown', $post_type, false );
+				}
+
                 // WP needs something, if this was empty and none were enabled, it would show title+editor pre 3.5 :(
                 $cpt_supports = array();
 
@@ -492,7 +506,7 @@ class PodsInit {
                     'supports' => $cpt_supports,
                     //'register_meta_box_cb' => array($this, 'manage_meta_box'),
                     //'permalink_epmask' => EP_PERMALINK,
-                    'has_archive' => (boolean) pods_var( 'has_archive', $post_type, false ),
+                    'has_archive' => pods_v( 'has_archive_slug', $post_type, (boolean) pods_v( 'has_archive', $post_type, false ), true ),
                     'rewrite' => $cpt_rewrite,
                     'query_var' => ( false !== (boolean) pods_var( 'query_var', $post_type, true ) ? pods_var( 'query_var_string', $post_type, $post_type_name, null, true ) : false ),
                     'can_export' => (boolean) pods_var( 'can_export', $post_type, true )

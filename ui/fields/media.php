@@ -31,6 +31,7 @@ if ( 'multi' == pods_var( $form_field_type . '_format_type', $options, 'single' 
 $limit_file_type = pods_var( $form_field_type . '_type', $options, 'images' );
 
 $title_editable = pods_var( $form_field_type . '_edit_title', $options, 0 );
+$linked = pods_var( $form_field_type . '_linked', $options, 0 );
 
 if ( 'images' == $limit_file_type ) {
     $limit_types = 'image';
@@ -52,9 +53,9 @@ elseif ( 'any' == $limit_file_type ) {
     $limit_types = '';
     $limit_extensions = '*';
 }
-else
+else {
     $limit_types = $limit_extensions = pods_var( $form_field_type . '_allowed_extensions', $options, '', null, true );
-
+}
 $limit_types = trim( str_replace( array( ' ', '.', "\n", "\t", ';' ), array( '', ',', ',', ',' ), $limit_types ), ',' );
 $limit_extensions = trim( str_replace( array( ' ', '.', "\n", "\t", ';' ), array( '', ',', ',', ',' ), $limit_extensions ), ',' );
 
@@ -81,9 +82,9 @@ if ( !in_array( $limit_file_type, array( 'images', 'video', 'audio', 'text', 'an
                     $mime = explode( '/', $mime );
                     $mime = $mime[ 0 ];
 
-                    if ( !in_array( $mime, $new_limit_types ) )
+                    if ( !in_array( $mime, $new_limit_types ) ) {
                         $new_limit_types[] = $mime;
-
+                    }
                     $found = true;
                 }
             }
@@ -94,7 +95,7 @@ if ( !in_array( $limit_file_type, array( 'images', 'video', 'audio', 'text', 'an
     }
 
     if ( !empty( $new_limit_types ) )
-        $limit_types = implode( ', ', $new_limit_types );
+        $limit_types = implode( ',', $new_limit_types );
 }
 
 if ( empty( $value ) )
@@ -114,7 +115,9 @@ else
 
             $title = $attachment->post_title;
 
-            echo $field_file->markup( $attributes, $file_limit, $title_editable, $val, $thumb[ 0 ], $title );
+			$link = wp_get_attachment_url( $attachment->ID );
+
+            echo $field_file->markup( $attributes, $file_limit, $title_editable, $val, $thumb[ 0 ], $title, $linked, $link );
         }
         ?></ul>
 
@@ -122,7 +125,7 @@ else
 </div>
 
 <script type="text/x-handlebars" id="<?php echo $css_id; ?>-handlebars">
-    <?php echo $field_file->markup( $attributes, $file_limit, $title_editable ); ?>
+    <?php echo $field_file->markup( $attributes, $file_limit, $title_editable, null, null, null, $linked ); ?>
 </script>
 
 <script type="text/javascript">
@@ -147,8 +150,10 @@ else
         <?php } ?>
 
         // hook delete links
-        $element_<?php echo pods_clean_name( $attributes[ 'name' ] ); ?>.on( 'click', 'li.pods-file-delete', function () {
-            var podsfile = $( this ).parent().parent();
+        $element_<?php echo pods_clean_name( $attributes[ 'name' ] ); ?>.on( 'click', 'li.pods-file-delete a', function ( e ) {
+			e.preventDefault();
+
+            var podsfile = $( this ).parent().parent().parent();
             podsfile.slideUp( function () {
                 // check to see if this was the only entry
                 if ( podsfile.parent().children().length == 1 ) { // 1 because we haven't removed our target yet
@@ -164,8 +169,13 @@ else
 
             event.preventDefault();
 
-            var default_ext = wp.Uploader.defaults.filters[0].extensions;
-            wp.Uploader.defaults.filters[0].extensions = '<?php echo esc_js( $limit_extensions ); ?>';
+	        if(typeof wp.Uploader.defaults.filters.mime_types == 'undefined') {
+		        wp.Uploader.defaults.filters.mime_types = [{title:'Allowed Files', extensions: '*'}];
+	        }
+
+	        var default_ext = wp.Uploader.defaults.filters.mime_types[0].extensions;
+
+	        wp.Uploader.defaults.filters.mime_types[0].extensions = "<?php echo esc_js( $limit_extensions ); ?>";
 
             // if the frame already exists, open it
             if ( pods_media_<?php echo pods_clean_name( $attributes[ 'name' ] ); ?> ) {
@@ -225,7 +235,7 @@ else
                         }
 
                         <?php if ( !empty( $limit_types ) ) : ?>
-                            if ( '<?php echo implode( '\' != attachment.attributes.type || \'', explode( ',', $limit_types ) ); ?>' != attachment.attributes.type )
+                            if ( '<?php echo implode( '\' != attachment.attributes.type && \'', explode( ',', $limit_types ) ); ?>' != attachment.attributes.type )
                                 return;
                         <?php endif; ?>
 
@@ -234,7 +244,8 @@ else
                             id: attachment.id,
                             icon: attachment_thumbnail,
                             name: attachment.attributes.title,
-                            filename: attachment.filename
+                            filename: attachment.filename,
+                            link: attachment.attributes.url
                         };
 
                         var tmpl = Handlebars.compile( $( 'script#<?php echo esc_js( $css_id ); ?>-handlebars' ).html() );
@@ -267,7 +278,7 @@ else
             }
 
             // Reset the allowed file extensions
-            wp.Uploader.defaults.filters[0].extensions = default_ext;
+            wp.Uploader.defaults.filters.mime_types[0].extensions = default_ext;
         });
 
     });

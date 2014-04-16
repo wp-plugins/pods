@@ -29,6 +29,7 @@ $field_nonce = wp_create_nonce( 'pods_upload_' . ( !is_object( $pod ) ? '0' : $p
 $limit_file_type = pods_var( $form_field_type . '_type', $options, 'images' );
 
 $title_editable = pods_var( $form_field_type . '_edit_title', $options, 0 );
+$linked = pods_var( $form_field_type . '_linked', $options, 0 );
 
 if ( 'images' == $limit_file_type )
     $limit_types = 'jpg,jpeg,png,gif';
@@ -87,6 +88,8 @@ else
             if ( 0 == $title_editable )
                 $title = basename( $attachment->guid );
 
+			$link = wp_get_attachment_url( $attachment->ID );
+
             echo $field_file->markup( $attributes, $file_limit, $title_editable, $val, $thumb[ 0 ], $title );
         }
         ?></ul>
@@ -111,8 +114,10 @@ else
             } );
 
         // hook delete links
-        $( '#<?php echo esc_js( $css_id ); ?>' ).on( 'click', 'li.pods-file-delete', function () {
-            var podsfile = $( this ).parent().parent();
+        $( '#<?php echo esc_js( $css_id ); ?>' ).on( 'click', 'li.pods-file-delete a', function ( e ) {
+			e.preventDefault();
+
+            var podsfile = $( this ).parent().parent().parent();
             podsfile.slideUp( function () {
 
                 // check to see if this was the only entry

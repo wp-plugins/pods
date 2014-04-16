@@ -106,12 +106,13 @@ class PodsAPI {
      * @param array $meta (optional) Associative array of meta keys and values
      * @param bool $strict (optional) Decides whether the previous saved meta should be deleted or not
      * @param bool $sanitized (optional) Will unsanitize the data, should be passed if the data is sanitized before sending.
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return bool|mixed
      *
      * @since 2.0
      */
-    public function save_wp_object ( $object_type, $data, $meta = array(), $strict = false, $sanitized = false ) {
+    public function save_wp_object ( $object_type, $data, $meta = array(), $strict = false, $sanitized = false, $fields = array() ) {
         if ( in_array( $object_type, array( 'post_type', 'media' ) ) )
             $object_type = 'post';
 
@@ -121,7 +122,7 @@ class PodsAPI {
         }
 
         if ( in_array( $object_type, array( 'post', 'user', 'comment' ) ) )
-            return call_user_func( array( $this, 'save_' . $object_type ), $data, $meta, $strict, false );
+            return call_user_func( array( $this, 'save_' . $object_type ), $data, $meta, $strict, false, $fields );
         elseif ( 'settings' == $object_type ) {
             // Nothing to save
             if ( empty( $meta ) )
@@ -167,12 +168,13 @@ class PodsAPI {
      * @param array $post_meta (optional) All meta to be saved (set value to null to delete)
      * @param bool $strict (optional) Whether to delete previously saved meta not in $post_meta
      * @param bool $sanitized (optional) Will unsanitize the data, should be passed if the data is sanitized before sending.
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return mixed|void
      *
      * @since 2.0
      */
-    public function save_post ( $post_data, $post_meta = null, $strict = false, $sanitized = false ) {
+    public function save_post ( $post_data, $post_meta = null, $strict = false, $sanitized = false, $fields = array() ) {
         $conflicted = pods_no_conflict_check( 'post' );
 
         if ( !$conflicted )
@@ -206,7 +208,7 @@ class PodsAPI {
             return pods_error( $post_error->get_error_message(), $this );
         }
 
-        $this->save_post_meta( $post_data[ 'ID' ], $post_meta, $strict );
+        $this->save_post_meta( $post_data[ 'ID' ], $post_meta, $strict, $fields );
 
         if ( !$conflicted )
             pods_no_conflict_off( 'post' );
@@ -220,12 +222,15 @@ class PodsAPI {
      * @param int $id Post ID
      * @param array $post_meta All meta to be saved (set value to null to delete)
      * @param bool $strict Whether to delete previously saved meta not in $post_meta
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int Id of the post with the meta
      *
      * @since 2.0
      */
-    public function save_post_meta ( $id, $post_meta = null, $strict = false ) {
+    public function save_post_meta ( $id, $post_meta = null, $strict = false, $fields = array() ) {
+        $simple_tableless_objects = PodsForm::field_method( 'pick', 'simple_objects' );
+
         $conflicted = pods_no_conflict_check( 'post' );
 
         if ( !$conflicted )
@@ -252,8 +257,28 @@ class PodsAPI {
 
                 delete_post_meta( $id, $meta_key, $old_meta_value );
             }
-            else
-                update_post_meta( $id, $meta_key, $meta_value );
+            else {
+				$simple = false;
+
+				if ( isset( $fields[ $meta_key ] ) && is_array( $meta_value ) ) {
+					$field_data = $fields[ $meta_key ];
+
+					$simple = ( 'pick' == $field_data[ 'type' ] && in_array( pods_var( 'pick_object', $field_data ), $simple_tableless_objects ) );
+				}
+
+				if ( $simple ) {
+					delete_post_meta( $id, $meta_key );
+
+					update_post_meta( $id, '_pods_' . $meta_key, $meta_value );
+
+					foreach ( $meta_value as $value ) {
+						add_post_meta( $id, $meta_key, $value );
+					}
+				}
+				else {
+                	update_post_meta( $id, $meta_key, $meta_value );
+				}
+			}
         }
 
         if ( $strict ) {
@@ -276,12 +301,13 @@ class PodsAPI {
      * @param array $user_meta (optional) All meta to be saved (set value to null to delete)
      * @param bool $strict (optional) Whether to delete previously saved meta not in $user_meta
      * @param bool $sanitized (optional) Will unsanitize the data, should be passed if the data is sanitized before sending.
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int Returns user id on success
      *
      * @since 2.0
      */
-    public function save_user ( $user_data, $user_meta = null, $strict = false, $sanitized = false ) {
+    public function save_user ( $user_data, $user_meta = null, $strict = false, $sanitized = false, $fields = array() ) {
         if ( !is_array( $user_data ) || empty( $user_data ) )
             return pods_error( __( 'User data is required but is either invalid or empty', 'pods' ), $this );
 
@@ -322,7 +348,7 @@ class PodsAPI {
             return pods_error( $user_error->get_error_message(), $this );
         }
 
-        $this->save_user_meta( $user_data[ 'ID' ], $user_meta, $strict );
+        $this->save_user_meta( $user_data[ 'ID' ], $user_meta, $strict, $fields );
 
         if ( !$conflicted )
             pods_no_conflict_off( 'user' );
@@ -336,13 +362,16 @@ class PodsAPI {
      * @param int $id User ID
      * @param array $user_meta (optional) All meta to be saved (set value to null to delete)
      * @param bool $strict (optional) Whether to delete previously saved meta not in $user_meta
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int User ID
      *
      * @since 2.0
      *
      */
-    public function save_user_meta ( $id, $user_meta = null, $strict = false ) {
+    public function save_user_meta ( $id, $user_meta = null, $strict = false, $fields = array() ) {
+        $simple_tableless_objects = PodsForm::field_method( 'pick', 'simple_objects' );
+
         $conflicted = pods_no_conflict_check( 'user' );
 
         if ( !$conflicted )
@@ -364,8 +393,26 @@ class PodsAPI {
 
                 delete_user_meta( $id, $meta_key, $old_meta_value );
             }
-            else
-                update_user_meta( $id, $meta_key, $meta_value );
+            else {
+				$simple = false;
+
+				if ( isset( $fields[ $meta_key ] ) && is_array( $meta_value ) ) {
+					$field_data = $fields[ $meta_key ];
+
+					$simple = ( 'pick' == $field_data[ 'type' ] && in_array( pods_var( 'pick_object', $field_data ), $simple_tableless_objects ) );
+				}
+
+				if ( $simple ) {
+					delete_user_meta( $id, $meta_key );
+
+					foreach ( $meta_value as $value ) {
+						add_user_meta( $id, $meta_key, $value );
+					}
+				}
+				else {
+                	update_user_meta( $id, $meta_key, $meta_value );
+				}
+			}
         }
 
         if ( $strict ) {
@@ -388,12 +435,13 @@ class PodsAPI {
      * @param array $comment_meta (optional) All meta to be saved (set value to null to delete)
      * @param bool $strict (optional) Whether to delete previously saved meta not in $comment_meta
      * @param bool $sanitized (optional) Will unsanitize the data, should be passed if the data is sanitized before sending.
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int Comment ID
      *
      * @since 2.0
      */
-    public function save_comment ( $comment_data, $comment_meta = null, $strict = false, $sanitized = false ) {
+    public function save_comment ( $comment_data, $comment_meta = null, $strict = false, $sanitized = false, $fields = array() ) {
         if ( !is_array( $comment_data ) || empty( $comment_data ) )
             return pods_error( __( 'Comment data is required but is either invalid or empty', 'pods' ), $this );
 
@@ -427,7 +475,7 @@ class PodsAPI {
             return pods_error( $comment_error->get_error_message(), $this );
         }
 
-        $this->save_comment_meta( $comment_data[ 'comment_ID' ], $comment_meta, $strict );
+        $this->save_comment_meta( $comment_data[ 'comment_ID' ], $comment_meta, $strict, $fields );
 
         if ( !$conflicted )
             pods_no_conflict_off( 'comment' );
@@ -441,12 +489,15 @@ class PodsAPI {
      * @param int $id Comment ID
      * @param array $comment_meta (optional) All meta to be saved (set value to null to delete)
      * @param bool $strict (optional) Whether to delete previously saved meta not in $comment_meta
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int Comment ID
      *
      * @since 2.0
      */
-    public function save_comment_meta ( $id, $comment_meta = null, $strict = false ) {
+    public function save_comment_meta ( $id, $comment_meta = null, $strict = false, $fields = array() ) {
+        $simple_tableless_objects = PodsForm::field_method( 'pick', 'simple_objects' );
+
         $conflicted = pods_no_conflict_check( 'comment' );
 
         if ( !$conflicted )
@@ -468,8 +519,26 @@ class PodsAPI {
 
                 delete_comment_meta( $id, $meta_key, $old_meta_value );
             }
-            else
-                update_comment_meta( $id, $meta_key, $meta_value );
+            else {
+				$simple = false;
+
+				if ( isset( $fields[ $meta_key ] ) && is_array( $meta_value ) ) {
+					$field_data = $fields[ $meta_key ];
+
+					$simple = ( 'pick' == $field_data[ 'type' ] && in_array( pods_var( 'pick_object', $field_data ), $simple_tableless_objects ) );
+				}
+
+				if ( $simple ) {
+					delete_comment_meta( $id, $meta_key );
+
+					foreach ( $meta_value as $value ) {
+						add_comment_meta( $id, $meta_key, $value );
+					}
+				}
+				else {
+                	update_comment_meta( $id, $meta_key, $meta_value );
+				}
+			}
         }
 
         if ( $strict ) {
@@ -493,12 +562,13 @@ class PodsAPI {
      * @param string $taxonomy Taxonomy name
      * @param array $term_data All term data to be saved (using wp_insert_term / wp_update_term)
      * @param bool $sanitized (optional) Will unsanitize the data, should be passed if the data is sanitized before sending.
+     * @param array $fields (optional) The array of fields and their options, for further processing with
      *
      * @return int Term ID
      *
      * @since 2.0
      */
-    public function save_term ( $term_ID, $term, $taxonomy, $term_data, $sanitized = false ) {
+    public function save_term ( $term_ID, $term, $taxonomy, $term_data, $sanitized = false, $fields = array() ) {
         $conflicted = pods_no_conflict_check( 'taxonomy' );
 
         if ( !$conflicted )
@@ -1440,14 +1510,23 @@ class PodsAPI {
 		 */
 		global $wp_query;
 
-		$reserved_query_vars = array_keys( $wp_query->fill_query_vars( array() ) );
+		$reserved_query_vars = array(
+			'post_type',
+			'taxonomy',
+			'output'
+		);
+
+		if ( is_object( $wp_query ) ) {
+			$reserved_query_vars = array_merge( $reserved_query_vars, array_keys( $wp_query->fill_query_vars( array() ) ) );
+		}
 
 		if ( isset( $pod[ 'options' ][ 'query_var_string' ] ) ) {
 			if ( in_array( $pod[ 'options' ][ 'query_var_string' ], $reserved_query_vars ) ) {
 				$pod[ 'options' ][ 'query_var_string' ] = $pod[ 'options' ][ 'type' ] . '_' . $pod[ 'options' ][ 'query_var_string' ];
 			}
 		}
-		elseif ( isset( $pod[ 'options' ][ 'query_var' ] ) ) {
+
+		if ( isset( $pod[ 'options' ][ 'query_var' ] ) ) {
 			if ( in_array( $pod[ 'options' ][ 'query_var' ], $reserved_query_vars ) ) {
 				$pod[ 'options' ][ 'query_var' ] = $pod[ 'options' ][ 'type' ] . '_' . $pod[ 'options' ][ 'query_var' ];
 			}
@@ -2664,6 +2743,7 @@ class PodsAPI {
      * $params['id'] int The item ID
      * $params['data'] array (optional) Associative array of field names + values
      * $params['bypass_helpers'] bool Set to true to bypass running pre-save and post-save helpers
+	 * $params['track_changed_fields'] bool Set to true to enable tracking of saved fields via PodsAPI::get_changed_fields()
      *
      * @param array|object $params An associative array of parameters
      *
@@ -2672,6 +2752,9 @@ class PodsAPI {
      * @since 1.7.9
      */
     public function save_pod_item ( $params ) {
+
+		global $wpdb;
+
         $params = (object) pods_str_replace( '@wp_', '{prefix}', $params );
 
         $tableless_field_types = PodsForm::tableless_field_types();
@@ -2737,6 +2820,24 @@ class PodsAPI {
 
         if ( !isset( $params->from ) )
             $params->from = 'save';
+
+        if ( !isset( $params->location ) )
+            $params->location = null;
+
+        if ( !isset( $params->track_changed_fields ) )
+            $params->track_changed_fields = false;
+
+		/**
+		 * Override $params['track_changed_fields']
+		 *
+		 * Use for globally setting field change tracking.
+		 *
+		 * @param bool
+		 *
+		 * @since 2.3.19
+		 */
+		$track_changed_fields = apply_filters( 'pods_api_save_pod_item_track_changed_fields_' . $params->pod, (boolean) $params->track_changed_fields, $params );
+		$changed_fields = array();
 
 		if ( !isset( $params->clear_slug_cache ) ) {
 			$params->clear_slug_cache = true;
@@ -2843,21 +2944,19 @@ class PodsAPI {
             unset( $params->data );
         }
 
-        if ( 'pod' == $pod[ 'type' ] ) {
-            if ( empty( $params->id ) && !in_array( 'created', $fields_active ) && isset( $fields[ 'created' ] ) ) {
-                $fields[ 'created' ][ 'value' ] = current_time( 'mysql' );
-                $fields_active[] = 'created';
-            }
+		if ( empty( $params->id ) && !in_array( 'created', $fields_active ) && isset( $fields[ 'created' ] ) && in_array( $fields[ 'created' ][ 'type' ], array( 'date', 'datetime' ) ) ) {
+			$fields[ 'created' ][ 'value' ] = current_time( 'mysql' );
+			$fields_active[] = 'created';
+		}
 
-            if ( !in_array( 'modified', $fields_active ) && isset( $fields[ 'modified' ] ) ) {
-                $fields[ 'modified' ][ 'value' ] = current_time( 'mysql' );
-                $fields_active[] = 'modified';
-            }
+		if ( !in_array( 'modified', $fields_active ) && isset( $fields[ 'modified' ] ) && in_array( $fields[ 'modified' ][ 'type' ], array( 'date', 'datetime' ) ) ) {
+			$fields[ 'modified' ][ 'value' ] = current_time( 'mysql' );
+			$fields_active[] = 'modified';
+		}
 
-            if ( empty( $params->id ) && !empty( $pod[ 'pod_field_index' ] ) && in_array( $pod[ 'pod_field_index' ], $fields_active ) && !in_array( $pod[ 'pod_field_slug' ], $fields_active ) && isset( $fields[ $pod[ 'pod_field_slug' ] ] ) ) {
-                $fields[ $pod[ 'pod_field_slug' ] ][ 'value' ] = ''; // this will get picked up by slug pre_save method
-                $fields_active[] = $pod[ 'pod_field_slug' ];
-            }
+        if ( in_array( $pod[ 'type' ], array( 'pod', 'table' ) ) && empty( $params->id ) && !empty( $pod[ 'pod_field_index' ] ) && in_array( $pod[ 'pod_field_index' ], $fields_active ) && !in_array( $pod[ 'pod_field_slug' ], $fields_active ) && isset( $fields[ $pod[ 'pod_field_slug' ] ] ) ) {
+			$fields[ $pod[ 'pod_field_slug' ] ][ 'value' ] = ''; // this will get picked up by slug pre_save method
+			$fields_active[] = $pod[ 'pod_field_slug' ];
         }
 
         // Handle hidden fields
@@ -2919,17 +3018,19 @@ class PodsAPI {
 
         $pre_save_helpers = $post_save_helpers = array();
 
-        if ( false === $bypass_helpers ) {
-			$pieces = array(
-				'fields',
-				'params',
-				'pod',
-				'fields_active',
-				'object_fields',
-				'custom_fields',
-				'custom_data'
-			);
+		$pieces = array(
+			'fields',
+			'params',
+			'pod',
+			'fields_active',
+			'object_fields',
+			'custom_fields',
+			'custom_data',
+			'track_changed_fields',
+			'changed_fields'
+		);
 
+        if ( false === $bypass_helpers ) {
             // Plugin hooks
             $hooked = $this->do_hook( 'pre_save_pod_item', compact( $pieces ), $is_new_item, $params->id );
 
@@ -2987,6 +3088,10 @@ class PodsAPI {
                 }
             }
         }
+
+		if ( $track_changed_fields ) {
+			$changed_fields = $this->get_changed_fields( compact( $pieces ) );
+		}
 
         $table_data = $table_formats = $update_values = $rel_fields = $rel_field_ids = array();
 
@@ -3163,7 +3268,23 @@ class PodsAPI {
             if ( $allow_custom_fields && !empty( $custom_data ) )
                 $object_meta = array_merge( $custom_data, $object_meta );
 
-            $params->id = $this->save_wp_object( $object_type, $object_data, $object_meta, false, true );
+			$fields_to_send = array_flip( array_keys( $object_meta ) );
+
+			foreach ( $fields_to_send as $field => $field_data ) {
+				if ( isset( $object_fields[ $field ] ) ) {
+					$field_data = $object_fields[ $field ];
+				}
+				elseif ( isset( $fields[ $field ] ) ) {
+					$field_data = $fields[ $field ];
+				}
+				else {
+					unset( $fields_to_send[ $field ] );
+				}
+
+				$fields_to_send[ $field ] = $field_data;
+			}
+
+            $params->id = $this->save_wp_object( $object_type, $object_data, $object_meta, false, true, $fields_to_send );
 
             if ( !empty( $params->id ) && 'settings' == $object_type )
                 $params->id = $pod[ 'id' ];
@@ -3223,72 +3344,132 @@ class PodsAPI {
         if ( !empty( $rel_fields ) ) {
             foreach ( $rel_fields as $type => $data ) {
                 // Only handle tableless fields
-                if ( !in_array( $type, $tableless_field_types ) )
+                if ( !in_array( $type, $tableless_field_types ) ) {
                     continue;
+				}
 
                 foreach ( $data as $field => $values ) {
-                    $pick_val = pods_var( 'pick_val', $fields[ $field ][ 'options' ] );
+                    $pick_val = pods_var( 'pick_val', $fields[ $field ] );
 
-                    if ( 'table' == pods_var( 'pick_object', $fields[ $field ][ 'options' ] ) )
+                    if ( 'table' == pods_var( 'pick_object', $fields[ $field ] ) ) {
                         $pick_val = pods_var( 'pick_table', $fields[ $field ][ 'options' ], $pick_val, null, true );
+					}
 
                     if ( '__current__' == $pick_val ) {
-                        if ( is_object( $pod ) )
+                        if ( is_object( $pod ) ) {
                             $pick_val = $pod->pod;
-                        elseif ( is_array( $pod ) )
+						}
+                        elseif ( is_array( $pod ) ) {
                             $pick_val = $pod[ 'name' ];
-                        elseif ( 0 < strlen( $pod ) )
+						}
+                        elseif ( 0 < strlen( $pod ) ) {
                             $pick_val = $pod;
+						}
                     }
 
-                    $fields[ $field ][ 'options' ][ 'table_info' ] = pods_api()->get_table_info( pods_var( 'pick_object', $fields[ $field ][ 'options' ] ), $pick_val, null, null, $fields[ $field ][ 'options' ] );
-
-                    $search_data = pods_data();
-                    $search_data->table( $fields[ $field ][ 'options' ][ 'table_info' ] );
+                    $fields[ $field ][ 'options' ][ 'table_info' ] = pods_api()->get_table_info( pods_var( 'pick_object', $fields[ $field ] ), $pick_val, null, null, $fields[ $field ][ 'options' ] );
 
                     if ( isset( $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ] ) && !empty( $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ] ) && isset( $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ][ 'name' ] ) ) {
-                        $search_data->pod = $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ][ 'name' ];
-                        $search_data->fields = $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ][ 'fields' ];
+						$search_data = pods( $fields[ $field ][ 'options' ][ 'table_info' ][ 'pod' ][ 'name' ] );
+
+						$data_mode = 'pods';
                     }
+					else {
+						$search_data = pods_data();
+						$search_data->table( $fields[ $field ][ 'options' ][ 'table_info' ] );
+
+						$data_mode = 'data';
+					}
+
+					$find_rel_params = array(
+						'select' => "`t`.`{$search_data->field_id}`",
+						'where' => "`t`.`{$search_data->field_slug}` = %s OR `t`.`{$search_data->field_index}` = %s",
+						'limit' => 1,
+						'pagination' => false,
+						'search' => false
+					);
 
                     $related_limit = (int) pods_var_raw( $type . '_limit', $fields[ $field ][ 'options' ], 0 );
 
-                    if ( 'single' == pods_var_raw( $type . '_format_type', $fields[ $field ][ 'options' ] ) )
+                    if ( 'single' == pods_var_raw( $type . '_format_type', $fields[ $field ][ 'options' ] ) ) {
                         $related_limit = 1;
+					}
 
                     // Enforce integers / unique values for IDs
                     $value_ids = array();
 
+					$is_file_field = in_array( $type, PodsForm::file_field_types() );
+					$is_taggable = ( in_array( $type, PodsForm::tableless_field_types() ) && 1 == pods_v( $type . '_taggable', $fields[ $field ][ 'options' ] ) );
+
+					// @todo Handle simple relationships eventually
                     foreach ( $values as $v ) {
                         if ( !empty( $v ) ) {
-                            if ( !is_array( $v ) ) {
-                                if ( !preg_match( '/[^0-9]*/', $v ) )
-                                    $v = (int) $v;
-                                // File handling
-                                elseif ( in_array( $type, PodsForm::file_field_types() ) ) {
-                                    // Get ID from GUID
-                                    $v = pods_image_id_from_field( $v );
+							if ( !is_array( $v ) ) {
+								if ( !preg_match( '/[^0-9]*/', $v ) ) {
+									$v = (int) $v;
+								}
+								// File handling
+								elseif ( $is_file_field ) {
+									// Get ID from GUID
+									$v = pods_image_id_from_field( $v );
 
-                                    // If file not found, add it
-                                    if ( empty( $v ) )
-                                        $v = pods_attachment_import( $v );
-                                }
-                                // Reference by slug
-                                else {
-                                    $v_data = $search_data->fetch( $v );
+									// If file not found, add it
+									if ( empty( $v ) ) {
+										$v = pods_attachment_import( $v );
+									}
+								}
+								// Reference by slug
+								else {
+									$rel_params = $find_rel_params;
+									$rel_params[ 'where' ] = $wpdb->prepare( $rel_params[ 'where' ], array( $v, $v ) );
 
-                                    if ( !empty( $v_data ) && isset( $v_data[ $search_data->field_id ] ) )
-                                        $v = (int) $v_data[ $search_data->field_id ];
-                                }
-                                // @todo Handle simple relationships eventually
-                            }
-                            elseif ( in_array( $type, PodsForm::file_field_types() ) && isset( $v[ 'id' ] ) )
-                                $v = (int) $v[ 'id' ];
-                            else
-                                continue;
+									$search_data->select( $rel_params );
 
-                            if ( !empty( $v ) && !in_array( $v, $value_ids ) )
-                                $value_ids[] = $v;
+									$v_data = $search_data->fetch( $v );
+
+									if ( !empty( $v_data ) && isset( $v_data[ $search_data->field_id ] ) ) {
+										$v = (int) $v_data[ $search_data->field_id ];
+									}
+									// Allow tagging for Pods objects
+									elseif ( $is_taggable && 'pods' == $data_mode ) {
+										$tag_data = array(
+											$search_data->field_index => $v
+										);
+
+										if ( 'post_type' == $search_data->pod_data[ 'type' ] ) {
+											$tag_data[ 'post_status' ] = 'publish';
+										}
+
+										/**
+										 * Filter for changing tag before adding new item.
+										 *
+										 * @param array $tag_data Fields for creating new item.
+										 * @param int $v Field ID of tag.
+										 * @param obj $search_data Search object for tag.
+										 * @param string $field Table info for field.
+										 * @param array	$pieces Field array.
+										 *
+										 * @since 2.3.19
+										 */
+										$tag_data = apply_filters( 'pods_api_save_pod_item_taggable_data', $tag_data, $v, $search_data, $field, compact( $pieces ) );
+
+										// Save $v to a new item on related object
+										$v = $search_data->add( $tag_data );
+
+										// @todo Support non-Pods for tagging
+									}
+								}
+							}
+							elseif ( $is_file_field && isset( $v[ 'id' ] ) ) {
+								$v = (int) $v[ 'id' ];
+							}
+							else {
+								continue;
+							}
+
+							if ( !empty( $v ) && !in_array( $v, $value_ids ) ) {
+								$value_ids[] = $v;
+							}
                         }
                     }
 
@@ -3335,16 +3516,6 @@ class PodsAPI {
             pods_no_conflict_off( $pod[ 'type' ] );
 
         if ( false === $bypass_helpers ) {
-			$pieces = array(
-				'fields',
-				'params',
-				'pod',
-				'fields_active',
-				'object_fields',
-				'custom_fields',
-				'custom_data'
-			);
-
             $pieces = compact( $pieces );
 
             // Plugin hooks
@@ -3399,6 +3570,7 @@ class PodsAPI {
 
         // Success! Return the id
         return $params->id;
+
     }
 
     /**
@@ -3436,6 +3608,34 @@ class PodsAPI {
 
         return $ids;
     }
+
+	/**
+	 * Get the fields that have changed during a save
+	 *
+	 * @param array $pieces Pieces array from save_pod_item
+	 *
+	 * @return array Array of fields and values that have changed
+	 */
+	public function get_changed_fields( $pieces ) {
+
+		$fields = $pieces[ 'fields' ];
+		$fields_active = $pieces[ 'fields_active' ];
+
+		$fields_changed = array();
+
+		if ( 0 < $pieces[ 'params' ]->id ) {
+			$pod = pods( $pieces[ 'params' ]->pod, $pieces[ 'params' ]->id );
+
+			foreach ( $fields_active as $field ) {
+				if ( isset( $fields[ $field ] ) && $pod->raw( $field ) != $fields[ $field ][ 'value' ] ) {
+					$fields_changed[ $field ] = $fields[ $field ][ 'value' ];
+				}
+			}
+		}
+
+		return $fields_changed;
+
+	}
 
     /**
      * Save relationships
@@ -4780,8 +4980,9 @@ class PodsAPI {
 
         /**
          * @var $sitepress SitePress
+		 * @var $wpdb wpdb
          */
-        global $sitepress, $icl_adjust_id_url_filter_off;
+        global $sitepress, $icl_adjust_id_url_filter_off, $wpdb;
 
         $current_language = false;
         $load_fields = true;
@@ -4801,7 +5002,7 @@ class PodsAPI {
         elseif ( is_array( $params ) && isset( $params[ 'fields' ] ) && !$params[ 'fields' ] )
             $load_fields = false;
 
-        $transient = 'pods_pod';
+        $transient = 'pods_' . $wpdb->prefix . '_pod';
 
         if ( !empty( $current_language ) )
             $transient .= '_' . $current_language;
@@ -6229,7 +6430,7 @@ class PodsAPI {
 
         // Verify required fields
         if ( 1 == pods_var( 'required', $options[ 'options' ], 0 ) && 'slug' != $type ) {
-            if ( '' == $value || null === $value || array() === $value )
+            if ( '' == $value || null === $value || array() === $value || 0 === $value || '0' === $value || 0.00 === $value || '0.00' === $value )
                 return pods_error( sprintf( __( '%s is empty', 'pods' ), $label ), $this );
 
             if ( 'multi' == pods_var( 'pick_format_type', $options[ 'options' ] ) && 'autocomplete' != pods_var( 'pick_format_multi', $options[ 'options' ] ) ) {
@@ -6253,7 +6454,7 @@ class PodsAPI {
 
         // @todo move this to after pre-save preparations
         // Verify unique fields
-        if ( 1 == pods_var( 'unique', $options[ 'options' ], 0 ) && '' !== $value && null !== $value && array() !== $value && 0 !== $value && '0' !== $value ) {
+        if ( 1 == pods_var( 'unique', $options[ 'options' ], 0 ) && '' !== $value && null !== $value && array() !== $value && 0 !== $value && '0' !== $value && 0.00 !== $value && '0.00' !== $value ) {
             if ( empty( $pod ) )
                 return false;
 
@@ -6677,7 +6878,7 @@ class PodsAPI {
         if ( is_array( $field_name ) )
             $field_name = pods_var_raw( 'name', $field_name, ( version_compare( PHP_VERSION, '5.4.0', '>=' ) ? json_encode( $pod_name, JSON_UNESCAPED_UNICODE ) : json_encode( $field_name ) ), null, true );
 
-        $transient = 'pods_get_table_info_' . md5( $object_type . '_object_' . $object . '_name_' . $name . '_pod_' . $pod_name . '_field_' . $field_name );
+        $transient = 'pods_' . $wpdb->prefix . '_get_table_info_' . md5( $object_type . '_object_' . $object . '_name_' . $name . '_pod_' . $pod_name . '_field_' . $field_name );
 
         $current_language = false;
         $current_language_t_id = $current_language_tt_id = 0;
@@ -6696,7 +6897,7 @@ class PodsAPI {
         }
 
         if ( !empty( $current_language ) )
-            $transient = 'pods_get_table_info_' . $current_language . '_' . md5( $object_type . '_object_' . $object . '_name_' . $name . '_pod_' . $pod_name . '_field_' . $field_name );
+            $transient = 'pods_' . $wpdb->prefix . '_get_table_info_' . $current_language . '_' . md5( $object_type . '_object_' . $object . '_name_' . $name . '_pod_' . $pod_name . '_field_' . $field_name );
 
         $_info = false;
 
@@ -6849,7 +7050,22 @@ class PodsAPI {
                 if ( is_object( $post_type_object ) && $post_type_object->hierarchical )
                     $info[ 'object_hierarchical' ] = true;
 
-        		$post_stati = $this->do_hook( 'get_table_info_default_post_status', array( 'publish' ), $post_type, $info, $object_type, $object, $name, $pod, $field );
+				/**
+				 * Default Post Stati to query for.
+				 *
+				 * Use to change "default" post status from publish to any other status or statuses.
+				 *
+				 * @param  array $post_stati List of post statuses. Default is 'publish'
+				 * @param  string $post_type Post type of current object
+				 * @param  array $info Array of information about the object.
+				 * @param  string $object	Type of object
+				 * @param  string $name Name of pod to load
+				 * @param  array $pod Array with Pod information. Result of PodsAPI::load_pod()
+				 * @param  array $field		Array with field information
+				 *
+				 * @since unknown
+				 */
+				$post_stati = apply_filters( 'pods_api_get_table_info_default_post_status', array( 'publish' ), $post_type, $info, $object_type, $object, $name, $pod, $field );
 
                 $info[ 'where' ] = array(
                     //'post_status' => '`t`.`post_status` IN ( "inherit", "publish" )', // @todo Figure out what statuses Attachments can be
@@ -7481,6 +7697,7 @@ class PodsAPI {
         $id = pods_var( '_pods_id', $params );
         $uri = pods_var( '_pods_uri', $params );
         $form = pods_var( '_pods_form', $params );
+        $location = pods_var( '_pods_location', $params );
 
         if ( is_object( $obj ) ) {
             $pod = $obj->pod;
@@ -7520,7 +7737,8 @@ class PodsAPI {
             'pod' => $pod,
             'id' => $id,
             'data' => $data,
-            'from' => 'process_form'
+            'from' => 'process_form',
+			'location' => $location
         );
 
         $id = $this->save_pod_item( $params );

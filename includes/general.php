@@ -582,8 +582,9 @@ function pods_shortcode ( $tags, $content = null ) {
         'having' => null,
         'groupby' => null,
         'search' => true,
-        'pagination' => false,
+        'pagination' => null,
         'page' => null,
+        'offset' => null,
         'filters' => false,
         'filters_label' => null,
         'filters_location' => 'before',
@@ -679,39 +680,54 @@ function pods_shortcode ( $tags, $content = null ) {
     elseif ( empty( $id ) ) {
         $params = array();
 
-        if ( 0 < strlen( $tags[ 'orderby' ] ) )
-            $params[ 'orderby' ] = $tags[ 'orderby' ];
+		if ( !defined( 'PODS_DISABLE_SHORTCODE_SQL' ) || !PODS_DISABLE_SHORTCODE_SQL ) {
+			if ( 0 < strlen( $tags[ 'orderby' ] ) ) {
+				$params[ 'orderby' ] = $tags[ 'orderby' ];
+			}
 
-        if ( !empty( $tags[ 'limit' ] ) )
-            $params[ 'limit' ] = $tags[ 'limit' ];
+			if ( 0 < strlen( $tags[ 'where' ] ) ) {
+				$params[ 'where' ] = pods_evaluate_tags( $tags[ 'where' ] );
+			}
 
-        if ( 0 < strlen( $tags[ 'where' ] ) )
-            $params[ 'where' ] = pods_evaluate_tags( $tags[ 'where' ] );
+			if ( 0 < strlen( $tags[ 'having' ] ) ) {
+				$params[ 'having' ] = pods_evaluate_tags( $tags[ 'having' ] );
+			}
 
-        if ( 0 < strlen( $tags[ 'having' ] ) )
-            $params[ 'having' ] = pods_evaluate_tags( $tags[ 'having' ] );
+			if ( 0 < strlen( $tags[ 'groupby' ] ) ) {
+				$params[ 'groupby' ] = $tags[ 'groupby' ];
+			}
 
-        if ( 0 < strlen( $tags[ 'groupby' ] ) )
-            $params[ 'groupby' ] = $tags[ 'groupby' ];
+			if ( 0 < strlen( $tags[ 'select' ] ) ) {
+				$params[ 'select' ] = $tags[ 'select' ];
+			}
+		}
 
-        if ( 0 < strlen( $tags[ 'select' ] ) )
-            $params[ 'select' ] = $tags[ 'select' ];
+		if ( !empty( $tags[ 'limit' ] ) ) {
+			$params[ 'limit' ] = (int) $tags[ 'limit' ];
+		}
 
-        if ( empty( $tags[ 'search' ] ) )
-            $params[ 'search' ] = false;
+		if ( empty( $tags[ 'search' ] ) ) {
+			$params[ 'search' ] = false;
+		}
 
-        if ( 0 < absint( $tags[ 'page' ] ) )
-            $params[ 'page' ] = absint( $tags[ 'page' ] );
+		if ( 0 < absint( $tags[ 'page' ] ) ) {
+			$params[ 'page' ] = absint( $tags[ 'page' ] );
+		}
 
-        if ( empty( $tags[ 'pagination' ] ) )
-            $params[ 'pagination' ] = false;
+		if ( null !== $tags[ 'pagination' ] ) {
+			$params[ 'pagination' ] = (boolean) $tags[ 'pagination' ];
+		}
 
-        if ( !empty( $tags[ 'cache_mode' ] ) && 'none' != $tags[ 'cache_mode' ] ) {
-            $params[ 'cache_mode' ] = $tags[ 'cache_mode' ];
-            $params[ 'expires' ] = (int) $tags[ 'expires' ];
+        if ( 0 < (int) $tags[ 'offset' ] ) {
+            $params[ 'offset' ] = (int) $tags[ 'offset' ];
         }
 
-        $params = apply_filters( 'pods_shortcode_findrecords_params', $params );
+		if ( !empty( $tags[ 'cache_mode' ] ) && 'none' != $tags[ 'cache_mode' ] ) {
+			$params[ 'cache_mode' ] = $tags[ 'cache_mode' ];
+			$params[ 'expires' ] = (int) $tags[ 'expires' ];
+		}
+
+        $params = apply_filters( 'pods_shortcode_findrecords_params', $params, $pod, $tags );
 
         $pod->find( $params );
 
@@ -749,12 +765,12 @@ function pods_shortcode ( $tags, $content = null ) {
     if ( empty( $id ) && false !== $tags[ 'filters' ] && 'before' == $tags[ 'filters_location' ] )
         echo $pod->filters( $tags[ 'filters' ], $tags[ 'filters_label' ] );
 
-    if ( empty( $id ) && 0 < $found && false !== $tags[ 'pagination' ] && in_array( $tags[ 'pagination_location' ], array( 'before', 'both' ) ) )
+    if ( empty( $id ) && 0 < $found && true === $tags[ 'pagination' ] && in_array( $tags[ 'pagination_location' ], array( 'before', 'both' ) ) )
         echo $pod->pagination( $tags[ 'pagination_label' ] );
 
     echo $pod->template( $tags[ 'template' ], $content );
 
-    if ( empty( $id ) && 0 < $found && false !== $tags[ 'pagination' ] && in_array( $tags[ 'pagination_location' ], array( 'after', 'both' ) ) )
+    if ( empty( $id ) && 0 < $found && true === $tags[ 'pagination' ] && in_array( $tags[ 'pagination_location' ], array( 'after', 'both' ) ) )
         echo $pod->pagination( $tags[ 'pagination_label' ] );
 
     if ( empty( $id ) && false !== $tags[ 'filters' ] && 'after' == $tags[ 'filters_location' ] )
@@ -1115,7 +1131,13 @@ function pods_field ( $pod, $id = false, $name = null, $single = false ) {
         $id = get_the_ID();
     }
 
-    return pods( $pod, $id )->field( $name, $single );
+    $pod = pods( $pod, $id );
+
+	if ( is_object( $pod ) ) {
+		return $pod->field( $name, $single );
+	}
+
+	return null;
 }
 
 /**
@@ -1140,7 +1162,13 @@ function pods_field_display ( $pod, $id = false, $name = null, $single = false )
         $id = get_the_ID();
     }
 
-    return pods( $pod, $id )->display( $name, $single );
+    $pod = pods( $pod, $id );
+
+	if ( is_object( $pod ) ) {
+		return $pod->display( $name, $single );
+	}
+
+	return null;
 }
 
 /**
@@ -1248,9 +1276,9 @@ function pods_cache_set ( $key, $value, $group = '', $expires = 0) {
 }
 
 /**
- * Clear a cached value
+ * Get a cached value
  *
- * @see PodsView::clear
+ * @see PodsView::get
  *
  * @param string $key Key for the cache
  * @param string $group (optional) Key for the group
@@ -1265,9 +1293,9 @@ function pods_cache_get ( $key, $group = '', $callback = null ) {
 }
 
 /**
- * Get a cached value
+ * Clear a cached value
  *
- * @see PodsView::get
+ * @see PodsView::clear
  *
  * @param string|bool $key Key for the cache
  * @param string $group (optional) Key for the group
@@ -1627,6 +1655,7 @@ function pods_no_conflict_check ( $object_type = 'post' ) {
  * @since 2.0
  */
 function pods_no_conflict_on ( $object_type = 'post', $object = null ) {
+
     if ( 'post_type' == $object_type )
         $object_type = 'post';
     elseif ( 'term' == $object_type )
@@ -1638,22 +1667,29 @@ function pods_no_conflict_on ( $object_type = 'post', $object = null ) {
     if ( !is_object( PodsInit::$meta ) )
         return false;
 
-    $no_conflict = array();
+    $no_conflict = array(
+		'filter' => array()
+	);
 
     // Filters = Usually get/update/delete meta functions
     // Actions = Usually insert/update/save/delete object functions
     if ( 'post' == $object_type ) {
-        $no_conflict[ 'filter' ] = array(
-            array( 'get_post_metadata', array( PodsInit::$meta, 'get_post_meta' ), 10, 4 ),
-        );
+		if ( apply_filters( 'pods_meta_handler', true, 'post' ) ) {
+            // Handle *_post_meta
+			if ( apply_filters( 'pods_meta_handler_get', true, 'post' ) ) {
+				$no_conflict[ 'filter' ] = array(
+					array( 'get_post_metadata', array( PodsInit::$meta, 'get_post_meta' ), 10, 4 ),
+				);
+			}
 
-        if ( !pods_tableless() ) {
-            $no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
-                array( 'add_post_metadata', array( PodsInit::$meta, 'add_post_meta' ), 10, 5 ),
-                array( 'update_post_metadata', array( PodsInit::$meta, 'update_post_meta' ), 10, 5 ),
-                array( 'delete_post_metadata', array( PodsInit::$meta, 'delete_post_meta' ), 10, 5 )
-            ) );
-        }
+			if ( !pods_tableless() ) {
+				$no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
+					array( 'add_post_metadata', array( PodsInit::$meta, 'add_post_meta' ), 10, 5 ),
+					array( 'update_post_metadata', array( PodsInit::$meta, 'update_post_meta' ), 10, 5 ),
+					array( 'delete_post_metadata', array( PodsInit::$meta, 'delete_post_meta' ), 10, 5 )
+				) );
+			}
+		}
 
         $no_conflict[ 'action' ] = array(
             array( 'transition_post_status', array( PodsInit::$meta, 'save_post_detect_new' ), 10, 3 ),
@@ -1661,41 +1697,59 @@ function pods_no_conflict_on ( $object_type = 'post', $object = null ) {
         );
     }
     elseif ( 'taxonomy' == $object_type ) {
-        $no_conflict[ 'filter' ] = array();
+		if ( apply_filters( 'pods_meta_handler', true, 'term' ) ) {
+            // Handle *_term_meta
+			if ( apply_filters( 'pods_meta_handler_get', true, 'term' ) ) {
+        		$no_conflict[ 'filter' ] = array();
+			}
 
-        $no_conflict[ 'action' ] = array(
-            array( 'edit_term', array( PodsInit::$meta, 'save_taxonomy' ), 10, 3 ),
-            array( 'create_term', array( PodsInit::$meta, 'save_taxonomy' ), 10, 3 )
-        );
+			$no_conflict[ 'action' ] = array(
+				array( 'edit_term', array( PodsInit::$meta, 'save_taxonomy' ), 10, 3 ),
+				array( 'create_term', array( PodsInit::$meta, 'save_taxonomy' ), 10, 3 )
+			);
+		}
     }
     elseif ( 'media' == $object_type ) {
-        $no_conflict[ 'filter' ] = array(
-            array( 'wp_update_attachment_metadata', array( PodsInit::$meta, 'save_media' ), 10, 2 ),
-            array( 'get_post_metadata', array( PodsInit::$meta, 'get_post_meta' ), 10, 4 )
-        );
+		$no_conflict[ 'filter' ] = array(
+			array( 'wp_update_attachment_metadata', array( PodsInit::$meta, 'save_media' ), 10, 2 )
+		);
 
-        if ( !pods_tableless() ) {
-            $no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
-                array( 'add_post_metadata', array( PodsInit::$meta, 'add_post_meta' ), 10, 5 ),
-                array( 'update_post_metadata', array( PodsInit::$meta, 'update_post_meta' ), 10, 5 ),
-                array( 'delete_post_metadata', array( PodsInit::$meta, 'delete_post_meta' ), 10, 5 )
-            ) );
-        }
+		if ( apply_filters( 'pods_meta_handler', true, 'post' ) ) {
+            // Handle *_post_meta
+			if ( apply_filters( 'pods_meta_handler_get', true, 'post' ) ) {
+				$no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
+					array( 'get_post_metadata', array( PodsInit::$meta, 'get_post_meta' ), 10, 4 )
+				) );
+			}
 
-        $no_conflict[ 'action' ] = array();
+			if ( !pods_tableless() ) {
+				$no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
+					array( 'add_post_metadata', array( PodsInit::$meta, 'add_post_meta' ), 10, 5 ),
+					array( 'update_post_metadata', array( PodsInit::$meta, 'update_post_meta' ), 10, 5 ),
+					array( 'delete_post_metadata', array( PodsInit::$meta, 'delete_post_meta' ), 10, 5 )
+				) );
+			}
+
+			$no_conflict[ 'action' ] = array();
+		}
     }
     elseif ( 'user' == $object_type ) {
-        $no_conflict[ 'filter' ] = array(
-            array( 'get_user_metadata', array( PodsInit::$meta, 'get_user_meta' ), 10, 4 ),
-        );
+		if ( apply_filters( 'pods_meta_handler', true, 'user' ) ) {
+            // Handle *_term_meta
+			if ( apply_filters( 'pods_meta_handler_get', true, 'user' ) ) {
+				$no_conflict[ 'filter' ] = array(
+					array( 'get_user_metadata', array( PodsInit::$meta, 'get_user_meta' ), 10, 4 ),
+				);
+			}
 
-        if ( !pods_tableless() ) {
-            $no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
-                array( 'add_user_metadata', array( PodsInit::$meta, 'add_user_meta' ), 10, 5 ),
-                array( 'update_user_metadata', array( PodsInit::$meta, 'update_user_meta' ), 10, 5 ),
-                array( 'delete_user_metadata', array( PodsInit::$meta, 'delete_user_meta' ), 10, 5 )
-            ) );
-        }
+			if ( !pods_tableless() ) {
+				$no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
+					array( 'add_user_metadata', array( PodsInit::$meta, 'add_user_meta' ), 10, 5 ),
+					array( 'update_user_metadata', array( PodsInit::$meta, 'update_user_meta' ), 10, 5 ),
+					array( 'delete_user_metadata', array( PodsInit::$meta, 'delete_user_meta' ), 10, 5 )
+				) );
+			}
+		}
 
         $no_conflict[ 'action' ] = array(
             //array( 'user_register', array( PodsInit::$meta, 'save_user' ) ),
@@ -1703,17 +1757,22 @@ function pods_no_conflict_on ( $object_type = 'post', $object = null ) {
         );
     }
     elseif ( 'comment' == $object_type ) {
-        $no_conflict[ 'filter' ] = array(
-            array( 'get_comment_metadata', array( PodsInit::$meta, 'get_comment_meta' ), 10, 4 ),
-        );
+		if ( apply_filters( 'pods_meta_handler', true, 'comment' ) ) {
+            // Handle *_term_meta
+			if ( apply_filters( 'pods_meta_handler_get', true, 'comment' ) ) {
+				$no_conflict[ 'filter' ] = array(
+					array( 'get_comment_metadata', array( PodsInit::$meta, 'get_comment_meta' ), 10, 4 ),
+				);
+			}
 
-        if ( !pods_tableless() ) {
-            $no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
-                array( 'add_comment_metadata', array( PodsInit::$meta, 'add_comment_meta' ), 10, 5 ),
-                array( 'update_comment_metadata', array( PodsInit::$meta, 'update_comment_meta' ), 10, 5 ),
-                array( 'delete_comment_metadata', array( PodsInit::$meta, 'delete_comment_meta' ), 10, 5 )
-            ) );
-        }
+			if ( !pods_tableless() ) {
+				$no_conflict[ 'filter' ] = array_merge( $no_conflict[ 'filter' ], array(
+					array( 'add_comment_metadata', array( PodsInit::$meta, 'add_comment_meta' ), 10, 5 ),
+					array( 'update_comment_metadata', array( PodsInit::$meta, 'update_comment_meta' ), 10, 5 ),
+					array( 'delete_comment_metadata', array( PodsInit::$meta, 'delete_comment_meta' ), 10, 5 )
+				) );
+			}
+		}
 
         $no_conflict[ 'action' ] = array(
             array( 'pre_comment_approved', array( PodsInit::$meta, 'validate_comment' ), 10, 2 ),

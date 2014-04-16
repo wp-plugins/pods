@@ -162,6 +162,14 @@ class PodsField_WYSIWYG extends PodsField {
             )*/
         );
 
+		if ( function_exists( 'Markdown' ) ) {
+			$options[ 'output_options' ][ 'group' ][ self::$type . '_allow_markdown' ] = array(
+				'label' => __( 'Allow Markdown Syntax?', 'pods' ),
+				'default' => 0,
+				'type' => 'boolean'
+			);
+		}
+
         return $options;
     }
 
@@ -232,6 +240,10 @@ class PodsField_WYSIWYG extends PodsField {
             $value = do_shortcode( $value );
         }
 
+		if ( function_exists( 'Markdown' ) && 1 == pods_v( self::$type . '_allow_markdown', $options ) ) {
+			$value = Markdown( $value );
+		}
+
         return $value;
     }
 
@@ -297,6 +309,12 @@ class PodsField_WYSIWYG extends PodsField {
      */
     public function pre_save ( $value, $id = null, $name = null, $options = null, $fields = null, $pod = null, $params = null ) {
         $value = $this->strip_html( $value, $options );
+
+		$length = (int) pods_var( self::$type . '_max_length', $options, 0 );
+
+		if ( 0 < $length && $length < mb_strlen( $value ) ) {
+			$value = mb_substr( $value, 0, $length );
+		}
 
         return $value;
     }

@@ -10,6 +10,8 @@
     }
 </style>
 
+<p><em><?php _e('You must specify a Pods Template or create a custom template, using <a href="http://pods.io/docs/build/using-magic-tags/" title="Using Magic Tags" target="_blank">magic tags</a>.', 'pods'); ?></p></em>
+
 <ol class="pods_list_widget_form">
     <li>
         <label for="<?php echo $this->get_field_id( 'title' ); ?>"> <?php _e( 'Title', 'pods' ); ?></label>
@@ -73,9 +75,21 @@
     ?>
 
     <li>
+        <label for="<?php echo $this->get_field_id( 'before_content' ); ?>"> <?php _e( 'Before Content', 'pods' ); ?></label>
+
+        <input type="text" class="widefat" id="<?php echo $this->get_field_id( 'before_content' ); ?>" name="<?php echo $this->get_field_name( 'before_content' ); ?>" value="<?php echo esc_attr( $before_content ); ?>" />
+    </li>
+
+    <li>
         <label for="<?php echo $this->get_field_id( 'template_custom' ); ?>"> <?php _e( 'Custom Template', 'pods' ); ?></label>
 
         <textarea name="<?php echo $this->get_field_name( 'template_custom' ); ?>" id="<?php echo $this->get_field_id( 'template_custom' ); ?>" cols="10" rows="10" class="widefat"><?php echo esc_html( $template_custom ); ?></textarea>
+    </li>
+
+    <li>
+        <label for="<?php echo $this->get_field_id( 'after_content' ); ?>"> <?php _e( 'After Content', 'pods' ); ?></label>
+
+        <input type="text" class="widefat" id="<?php echo $this->get_field_id( 'after_content' ); ?>" name="<?php echo $this->get_field_name( 'after_content' ); ?>" value="<?php echo esc_attr( $after_content ); ?>" />
     </li>
 
     <li>

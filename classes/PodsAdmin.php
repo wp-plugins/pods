@@ -159,7 +159,7 @@ class PodsAdmin {
     }
 
     /**
-     * Buld the admin menus
+     * Build the admin menus
      *
      * @since 2.0
      */
@@ -443,6 +443,8 @@ class PodsAdmin {
 
             if ( empty( $all_pods ) )
                 unset( $admin_menus[ 'pods' ] );
+
+            add_filter( 'parent_file' , array( $this, 'parent_file' ) );
         }
         else {
             $admin_menus = array(
@@ -465,7 +467,14 @@ class PodsAdmin {
             add_action( 'admin_notices', array( $this, 'upgrade_notice' ) );
         }
 
-        $admin_menus = apply_filters( 'pods_admin_menu', $admin_menus );
+		/**
+		 * Add or change Pods Admin menu items
+		 *
+		 * @params array $admin_menus The submenu items in Pods Admin menu.
+		 *
+		 * @since unknown
+		 */
+		$admin_menus = apply_filters( 'pods_admin_menu', $admin_menus );
 
         $parent = false;
 
@@ -498,6 +507,54 @@ class PodsAdmin {
                     PodsInit::$components->menu( $parent );
             }
         }
+    }
+
+    /**
+     * Set the correct parent_file to highlight the correct top level menu
+     */
+    public function parent_file ( $parent_file ) {
+        global $current_screen;
+
+        if ( isset( $current_screen ) && ! empty( $current_screen->taxonomy ) ) {
+            $taxonomies = PodsMeta::$taxonomies;
+            if ( !empty( $taxonomies ) ) {
+                foreach ( (array) $taxonomies as $pod ) {
+                    if ( $current_screen->taxonomy !== $pod[ 'name' ] )
+                        continue;
+
+                    $menu_slug = 'edit-tags.php?taxonomy=' . $pod[ 'name' ];
+                    $menu_location = pods_var( 'menu_location', $pod[ 'options' ], 'default' );
+                    $menu_location_custom = pods_var( 'menu_location_custom', $pod[ 'options' ], '' );
+
+                    if ( 'settings' == $menu_location )
+                        $parent_file = 'options-general.php';
+                    elseif ( 'appearances' == $menu_location )
+                        $parent_file = 'themes.php';
+                    elseif ( 'objects' == $menu_location )
+                        $parent_file = $menu_slug;
+                    elseif ( 'top' == $menu_location )
+                        $parent_file = $menu_slug;
+                    elseif ( 'submenu' == $menu_location && !empty( $menu_location_custom ) ) {
+                        $parent_file = $menu_location_custom;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        if ( isset( $current_screen ) && ! empty( $current_screen->post_type ) ) {
+            global $submenu_file;
+            $components = PodsInit::$components->components;
+            foreach ( $components as $component => $component_data ) {
+                if ( ! empty( $component_data[ 'MenuPage' ] ) && $parent_file === $component_data[ 'MenuPage' ] ) {
+                    $parent_file = 'pods';
+                    $submenu_file = $component_data[ 'MenuPage' ];
+                }
+            }
+        }
+
+        return $parent_file;
     }
 
     public function upgrade_notice () {
@@ -583,6 +640,19 @@ class PodsAdmin {
      * @return string
      */
     public function media_button ( $context = null ) {
+
+		/**
+		 * Filter to remove Pods shortcode button from the post editor.
+		 *
+		 * @param bool. Set to false to block the shortcode button from appearing.
+		 * @param string $context
+		 *
+		 * @since 2.3.19
+		 */
+		if ( !apply_filters( 'pods_admin_media_button', true, $context ) ) {
+			return '';
+		}
+
         $current_page = basename( $_SERVER[ 'PHP_SELF' ] );
         $current_page = explode( '?', $current_page );
         $current_page = explode( '#', $current_page[ 0 ] );
@@ -590,7 +660,7 @@ class PodsAdmin {
 
         // Only show the button on post type pages
         if ( !in_array( $current_page, array( 'post-new.php', 'post.php' ) ) )
-            return $context;
+            return '';
 
         add_action( 'admin_footer', array( $this, 'mce_popup' ) );
 
@@ -845,9 +915,26 @@ class PodsAdmin {
 
 		$addtl_args = compact( array( 'fields', 'labels', 'admin_ui', 'advanced' ) );
 
-        $tabs = apply_filters( 'pods_admin_setup_edit_tabs_' . $pod[ 'type' ] . '_' . $pod[ 'name' ], $tabs, $pod, $addtl_args );
-        $tabs = apply_filters( 'pods_admin_setup_edit_tabs_' . $pod[ 'type' ], $tabs, $pod, $addtl_args );
-        $tabs = apply_filters( 'pods_admin_setup_edit_tabs', $tabs, $pod, $addtl_args );
+		/**
+		 * Add or modify tabs in Pods editor for a specific Pod
+		 *
+		 * @params array $tabs Tabs to set.
+		 * @params object $pod Current Pods object
+		 * @params array $addtl_args Additional args.
+		 *
+		 * @since unknown
+		 */
+		$tabs = apply_filters( 'pods_admin_setup_edit_tabs_' . $pod[ 'type' ] . '_' . $pod[ 'name' ], $tabs, $pod, $addtl_args );
+
+		/**
+		 * Add or modify tabs for any Pod in Pods editor of a specific post type.
+		 */
+		$tabs = apply_filters( 'pods_admin_setup_edit_tabs_' . $pod[ 'type' ], $tabs, $pod, $addtl_args );
+
+		/**
+		 * Add or modify tabs in Pods editor for all pods.
+		 */
+		$tabs = apply_filters( 'pods_admin_setup_edit_tabs', $tabs, $pod, $addtl_args );
 
         return $tabs;
     }
@@ -909,8 +996,8 @@ class PodsAdmin {
                     'depends-on' => array( 'show_in_menu' => true )
                 ),
                 'menu_icon' => array(
-                    'label' => __( 'Menu Icon URL', 'pods' ),
-                    'help' => __( 'help', 'pods' ),
+                    'label' => __( 'Menu Icon', 'pods' ),
+                    'help' => __( 'URL or Dashicon name for the menu icon. You may specify the path to the icon using one of the <a href="http://pods.io/docs/build/special-magic-tags/#site-tags" target="_blank">site tag</a> type <a href="http://pods.io/docs/build/special-magic-tags/" target="_blank">special magic tags</a>. For example, for a file in your theme directory, use "{@template-url}/path/to/image.png". You may also use the name of a <a href="http://melchoyce.github.io/dashicons/" target="_blank">Dashicon</a>. For example, to use the empty star icon, use "dashicons-star-empty".', 'pods' ),
                     'type' => 'text',
                     'default' => '',
                     'depends-on' => array( 'show_in_menu' => true )
@@ -980,15 +1067,23 @@ class PodsAdmin {
                     'boolean_yes_label' => ''
                 ),
                 'has_archive' => array(
-                    'label' => __( 'Has Archive', 'pods' ),
-                    'help' => __( 'help', 'pods' ),
+                    'label' => __( 'Enable Archive Page', 'pods' ),
+                    'help' => __( 'If enabled, creates an archive page with list of of items in this custom post type. Functions like a category page for posts. Can be controlled with a template in your theme called "archive-{$post-type}.php".', 'pods' ),
                     'type' => 'boolean',
                     'default' => false,
+                    'dependency' => true,
                     'boolean_yes_label' => ''
+                ),
+                'has_archive_slug' => array(
+                    'label' => __( 'Archive Page Slug Override', 'pods' ),
+                    'help' => __( 'If archive page is enabled, you can override the slug used by WordPress, which defaults to the name of the post type.', 'pods' ),
+                    'type' => 'text',
+                    'default' => '',
+                    'depends-on' => array( 'has_archive' => true )
                 ),
                 'hierarchical' => array(
                     'label' => __( 'Hierarchical', 'pods' ),
-                    'help' => __( 'help', 'pods' ),
+                    'help' => __( 'Allows for parent/ child relationships between items, just like with Pages. Note: To edit relationships in the post editor, you must enable "Page Attributes" in the "Supports" section below.', 'pods' ),
                     'type' => 'boolean',
                     'default' => false,
                     'dependency' => true,
@@ -1010,7 +1105,7 @@ class PodsAdmin {
                 ),
                 'rewrite' => array(
                     'label' => __( 'Rewrite', 'pods' ),
-                    'help' => __( 'help', 'pods' ),
+                    'help' => __( 'Allows you to use pretty permalinks, if set in WordPress Settings->Reading. If not enbabled, your links will be in the form of "example.com/?pod_name=post_slug" regardless of your permalink settings.', 'pods' ),
                     'type' => 'boolean',
                     'default' => true,
                     'dependency' => true,
@@ -1018,7 +1113,7 @@ class PodsAdmin {
                 ),
                 'rewrite_custom_slug' => array(
                     'label' => __( 'Custom Rewrite Slug', 'pods' ),
-                    'help' => __( 'help', 'pods' ),
+                    'help' => __( 'Changes the first segment of the URL, which by default is the name of the Pod. For example, if your Pod is called "foo", if this field is left blank, your link will be "example.com/foo/post_slug", but if you were to enter "bar" your link will be "example.com/bar/post_slug".', 'pods' ),
                     'type' => 'text',
                     'default' => '',
                     'depends-on' => array( 'rewrite' => true )
@@ -1347,9 +1442,25 @@ class PodsAdmin {
             );
         }
 
-        $options = apply_filters( 'pods_admin_setup_edit_options_' . $pod[ 'type' ] . '_' . $pod[ 'name' ], $options, $pod );
-        $options = apply_filters( 'pods_admin_setup_edit_options_' . $pod[ 'type' ], $options, $pod );
-        $options = apply_filters( 'pods_admin_setup_edit_options', $options, $pod );
+		/**
+		 * Add admin fields to the Pods editor for a specific Pod
+		 *
+		 * @params array $options The Options fields
+		 * @params object $pod Current Pods object
+		 *
+		 * @since unkown
+		 */
+		$options = apply_filters( 'pods_admin_setup_edit_options_' . $pod[ 'type' ] . '_' . $pod[ 'name' ], $options, $pod );
+
+		/**
+		 * Add admin fields to the Pods editor for any Pod of a specific content type.
+		 */
+		$options = apply_filters( 'pods_admin_setup_edit_options_' . $pod[ 'type' ], $options, $pod );
+
+		/**
+		 * Add admin fields to the Pods editor for all Pods
+		 */
+		$options = apply_filters( 'pods_admin_setup_edit_options', $options, $pod );
 
         return $options;
     }

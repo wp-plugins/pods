@@ -16,6 +16,10 @@
  */
 function pods_sanitize( $input, $params = array() ) {
 
+	if ( '' === $input || is_int( $input ) || is_float( $input ) || empty( $input ) ) {
+		return $input;
+	}
+
 	$output = array();
 
 	$defaults = array(
@@ -32,10 +36,7 @@ function pods_sanitize( $input, $params = array() ) {
 		$params = array_merge( $defaults, (array) $params );
 	}
 
-	if ( empty( $input ) ) {
-		$output = $input;
-	}
-	elseif ( is_object( $input ) ) {
+	if ( is_object( $input ) ) {
 		$input = get_object_vars( $input );
 
 		$n_params = $params;
@@ -71,10 +72,6 @@ function pods_sanitize( $input, $params = array() ) {
 		$output = esc_sql( $input );
 	}
 
-	if ( false === $params[ 'nested' ] ) {
-		$output = apply_filters( 'pods_sanitize', $output, $input );
-	}
-
 	return $output;
 
 }
@@ -91,6 +88,10 @@ function pods_sanitize( $input, $params = array() ) {
  * @see like_escape
  */
 function pods_sanitize_like( $input ) {
+
+	if ( '' === $input || is_int( $input ) || is_float( $input ) || empty( $input ) ) {
+		return $input;
+	}
 
 	$output = array();
 
@@ -129,6 +130,10 @@ function pods_sanitize_like( $input ) {
  * @see wp_slash
  */
 function pods_slash( $input, $params = array() ) {
+
+	if ( '' === $input || is_int( $input ) || is_float( $input ) || empty( $input ) ) {
+		return $input;
+	}
 
 	$output = array();
 
@@ -193,6 +198,10 @@ function pods_slash( $input, $params = array() ) {
  */
 function pods_unsanitize( $input, $params = array() ) {
 
+	if ( '' === $input || is_int( $input ) || is_float( $input ) || empty( $input ) ) {
+		return $input;
+	}
+
 	$output = array();
 
 	if ( empty( $input ) ) {
@@ -223,10 +232,6 @@ function pods_unsanitize( $input, $params = array() ) {
 		$output = ( pods_version_check( 'wp', '3.6' ) ? stripslashes( $input ) : stripslashes( $input ) );
 	}
 
-	if ( !is_array( $params ) || !isset( $params[ 'nested' ] ) || false === $params[ 'nested' ] ) {
-		$output = apply_filters( 'pods_unsanitize', $output, $input );
-	}
-
 	return $output;
 
 }
@@ -243,6 +248,10 @@ function pods_unsanitize( $input, $params = array() ) {
  * @see wp_unslash
  */
 function pods_unslash( $input ) {
+
+	if ( '' === $input || is_int( $input ) || is_float( $input ) || empty( $input ) ) {
+		return $input;
+	}
 
 	$output = array();
 
@@ -932,15 +941,20 @@ function pods_v_set( $value, $var, $type = 'get' ) {
 		elseif ( 'user' == $type && is_user_logged_in() ) {
 			$user = get_userdata( get_current_user_id() );
 
-			$user_data = $user->to_array();
-
-			// Core field
-			if ( isset( $user_data[ $var ] ) ) {
-				wp_update_user( array( 'ID' => $user->ID, $var => $value ) );
+			if ( !pods_version_check( 'wp', '3.5' ) ) {
+				$user_data = get_object_vars( $user->data );
 			}
+			else {
+				$user_data = $user->to_array();
+			}
+
 			// Role
-			elseif ( 'role' == $var ) {
+			if ( 'role' == $var ) {
 				$user->set_role( $value );
+			}
+			// Core field
+			elseif ( isset( $user_data[ $var ] ) ) {
+				wp_update_user( array( 'ID' => $user->ID, $var => $value ) );
 			}
 			// Meta field
 			else {

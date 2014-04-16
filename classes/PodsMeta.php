@@ -139,7 +139,9 @@ class PodsMeta {
 
         if ( apply_filters( 'pods_meta_handler', true, 'post' ) ) {
             // Handle *_post_meta
-            add_filter( 'get_post_metadata', array( $this, 'get_post_meta' ), 10, 4 );
+			if ( apply_filters( 'pods_meta_handler_get', true, 'post' ) ) {
+            	add_filter( 'get_post_metadata', array( $this, 'get_post_meta' ), 10, 4 );
+			}
 
             if ( !pods_tableless() ) {
                 add_filter( 'add_post_metadata', array( $this, 'add_post_meta' ), 10, 5 );
@@ -151,8 +153,16 @@ class PodsMeta {
         add_action( 'delete_post', array( $this, 'delete_post' ), 10, 1 );
 
         if ( !empty( self::$taxonomies ) ) {
+			$has_fields = false;
+
             // Handle Taxonomy Editor
             foreach ( self::$taxonomies as $taxonomy ) {
+				if ( empty( $taxonomy[ 'fields' ] ) ) {
+					continue;
+				}
+
+				$has_fields = true;
+
                 $taxonomy_name = $taxonomy[ 'name' ];
                 if ( !empty( $taxonomy[ 'object' ] ) )
                     $taxonomy_name = $taxonomy[ 'object' ];
@@ -161,20 +171,24 @@ class PodsMeta {
                 add_action( $taxonomy_name . '_add_form_fields', array( $this, 'meta_taxonomy' ), 10, 1 );
             }
 
-            // Handle Term Editor
-            add_action( 'edit_term', array( $this, 'save_taxonomy' ), 10, 3 );
-            add_action( 'create_term', array( $this, 'save_taxonomy' ), 10, 3 );
+			if ( $has_fields ) {
+				// Handle Term Editor
+				add_action( 'edit_term', array( $this, 'save_taxonomy' ), 10, 3 );
+				add_action( 'create_term', array( $this, 'save_taxonomy' ), 10, 3 );
 
-            if ( apply_filters( 'pods_meta_handler', true, 'term' ) ) {
-                // Handle *_term_meta
-                add_filter( 'get_term_metadata', array( $this, 'get_term_meta' ), 10, 4 );
+				if ( apply_filters( 'pods_meta_handler', true, 'term' ) ) {
+					// Handle *_term_meta
+					if ( apply_filters( 'pods_meta_handler_get', true, 'term' ) ) {
+						add_filter( 'get_term_metadata', array( $this, 'get_term_meta' ), 10, 4 );
+					}
 
-                if ( !pods_tableless() ) {
-                    add_filter( 'add_term_metadata', array( $this, 'add_term_meta' ), 10, 5 );
-                    add_filter( 'update_term_metadata', array( $this, 'update_term_meta' ), 10, 5 );
-                    add_filter( 'delete_term_metadata', array( $this, 'delete_term_meta' ), 10, 5 );
-                }
-            }
+					if ( !pods_tableless() ) {
+						add_filter( 'add_term_metadata', array( $this, 'add_term_meta' ), 10, 5 );
+						add_filter( 'update_term_metadata', array( $this, 'update_term_meta' ), 10, 5 );
+						add_filter( 'delete_term_metadata', array( $this, 'delete_term_meta' ), 10, 5 );
+					}
+				}
+			}
         }
 
         // Handle Delete
@@ -194,7 +208,9 @@ class PodsMeta {
             if ( apply_filters( 'pods_meta_handler', true, 'post' ) ) {
                 // Handle *_post_meta
                 if ( !has_filter( 'get_post_metadata', array( $this, 'get_post_meta' ) ) ) {
-                    add_filter( 'get_post_metadata', array( $this, 'get_post_meta' ), 10, 4 );
+					if ( apply_filters( 'pods_meta_handler_get', true, 'post' ) ) {
+                    	add_filter( 'get_post_metadata', array( $this, 'get_post_meta' ), 10, 4 );
+					}
 
                     if ( !pods_tableless() ) {
                         add_filter( 'add_post_metadata', array( $this, 'add_post_meta' ), 10, 5 );
@@ -217,7 +233,9 @@ class PodsMeta {
 
             if ( apply_filters( 'pods_meta_handler', true, 'user' ) ) {
                 // Handle *_user_meta
-                add_filter( 'get_user_metadata', array( $this, 'get_user_meta' ), 10, 4 );
+				if ( apply_filters( 'pods_meta_handler_get', true, 'user' ) ) {
+                	add_filter( 'get_user_metadata', array( $this, 'get_user_meta' ), 10, 4 );
+				}
 
                 if ( !pods_tableless() ) {
                     add_filter( 'add_user_metadata', array( $this, 'add_user_meta' ), 10, 5 );
@@ -873,7 +891,7 @@ class PodsMeta {
         <?php
         $id = null;
 
-        if ( is_object( $post ) && false === strpos( $_SERVER[ 'REQUEST_URI' ], '/post-new.php?' ) )
+        if ( is_object( $post ) && false === strpos( $_SERVER[ 'REQUEST_URI' ], '/post-new.php' ) )
             $id = $post->ID;
 
         if ( empty( self::$current_pod_data ) || !is_object( self::$current_pod ) || self::$current_pod->pod != $metabox[ 'args' ][ 'group' ][ 'pod' ][ 'name' ] )
@@ -1380,18 +1398,26 @@ class PodsMeta {
         if ( empty( $groups ) )
             return $term_id;
 
-        $term = get_term( $term_id, $taxonomy );
-
-        $data = array(
-            'name' => $term->name
-        );
+		$term = null;
 
         $id = $term_id;
         $pod = null;
 
+		$has_fields = false;
+
         foreach ( $groups as $group ) {
             if ( empty( $group[ 'fields' ] ) )
                 continue;
+
+			if ( null === $term ) {
+				$term = get_term( $term_id, $taxonomy );
+
+				$data = array(
+					'name' => $term->name
+				);
+			}
+
+			$has_fields = true;
 
 			if ( null === $pod || ( is_object( $pod ) && $pod->id() != $id ) ) {
 				if ( !is_object( self::$current_pod ) || self::$current_pod->pod != $group[ 'pod' ][ 'name' ] )
@@ -1415,6 +1441,10 @@ class PodsMeta {
                     $data[ $field[ 'name' ] ] = $_POST[ 'pods_meta_' . $field[ 'name' ] ];
             }
         }
+
+		if ( !$has_fields ) {
+			return $term_id;
+		}
 
         if ( $is_new_item ) {
             do_action( 'pods_meta_create_pre_taxonomy', $data, $pod, $id, $groups, $term_id, $term_taxonomy_id, $taxonomy );
@@ -2399,14 +2429,18 @@ class PodsMeta {
             return false;
 
         $reserved_post_types = array(
-            '_pods_pod',
-            '_pods_field'
+			'nav_menu_item',
+			'revision'
         );
 
         $reserved_post_types = apply_filters( 'pods_meta_reserved_post_types', $reserved_post_types, $object_type, $object_id, $object_name, $objects );
 
-        if ( empty( $object_name ) || ( 'post_type' == $object_type && in_array( $object_name, $reserved_post_types ) ) )
+        if ( empty( $object_name ) || ( 'post_type' == $object_type && ( 0 === strpos( $object_name, '_pods_' ) ) || in_array( $object_name, $reserved_post_types ) ) ) {
             return false;
+		}
+		elseif ( 'attachment' == $object_name ) {
+			return @current( self::$media );
+		}
 
         $recheck = array();
 
@@ -2442,8 +2476,13 @@ class PodsMeta {
         if ( 'post_type' == $meta_type )
             $meta_type = 'post';
 
-        if ( empty( $meta_key ) )
-            $single = false;
+        if ( empty( $meta_key ) ) {
+			if ( !defined( 'PODS_ALLOW_FULL_META' ) || !PODS_ALLOW_FULL_META ) {
+				return $_null; // don't cover get_post_meta( $id )
+			}
+
+			$single = false;
+		}
 
         $object = $this->get_object( $object_type, $object_id );
 
