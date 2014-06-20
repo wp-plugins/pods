@@ -101,6 +101,8 @@ class PodsComponents {
 
         $custom_component_menus = array();
 
+		$pods_component_menu_items = array();
+
         foreach ( $this->components as $component => $component_data ) {
             $component_data[ 'MustUse' ] = apply_filters( 'pods_component_require_' . $component_data[ 'ID' ], $component_data[ 'MustUse' ], $component_data );
 
@@ -147,18 +149,60 @@ class PodsComponents {
             if ( !empty( $component_data[ 'MenuPage' ] ) )
                 $custom_component_menus[ $menu_page ] = $component_data;
 
+			$pods_component_menu_items[ $component_data[ 'MenuName' ] ] = array(
+				'menu_page' => $menu_page,
+				'page_title' => $component_data[ 'Name' ],
+				'capability' => 'read',
+				'callback' => array( $this, 'admin_handler' )
+			);
+
+            if ( isset( $component_data[ 'object' ] ) && method_exists( $component_data[ 'object' ], 'admin_assets' ) ) {
+				$pods_component_menu_items[ $component_data[ 'MenuName' ] ][ 'assets' ] = array( $component_data[ 'object' ], 'admin_assets' );
+			}
+        }
+
+		/**
+		 * Add or change the items in the Pods Components Submenu.
+		 *
+		 * Can also be used to change which menu components is a submenu of or change title of menu.
+		 *
+		 * @params array $pods_component_menu_items {
+		 *          An array of arguments for add_submenu_page
+		 *
+		 *		  	@param string $parent_slug The slug name for the parent menu (or the file name of a standard WordPress admin page)
+		 *		  	@param string $page_title The text to be displayed in the title tags of the page when the menu is selected
+		 *		  	@param $menu_title The text to be used for the menu
+		 *		  	@param $capability The capability required for this menu to be displayed to the user.
+		 *		  	@param $menu_slug The slug name to refer to this menu by (should be unique for this menu)
+		 *		  	@param $function The function to be called to output the content for this page.
+		 * }
+		 *
+		 * @returns array Array of submenu pages to be passed to add_submenu_page()
+		 *
+		 * @since 2.4.1
+		 */
+		$pods_component_menu_items = apply_filters( 'pods_admin_components_menu', $pods_component_menu_items );
+
+		ksort( $pods_component_menu_items );
+
+		foreach ( $pods_component_menu_items as $menu_title => $menu_data ) {
+			if ( !is_callable( $menu_data[ 'callback' ] ) ) {
+				continue;
+			}
+
             $page = add_submenu_page(
                 $parent,
-                strip_tags( $component_data[ 'Name' ] ),
-                '- ' . strip_tags( $component_data[ 'MenuName' ] ),
-                'read',
-                $menu_page,
-                array( $this, 'admin_handler' )
+                strip_tags( $menu_data[ 'page_title' ] ),
+                '- ' . strip_tags( $menu_title ),
+				pods_v( 'capability', $menu_data, 'read', true ),
+                $menu_data[ 'menu_page' ],
+                $menu_data[ 'callback' ]
             );
 
-            if ( isset( $component_data[ 'object' ] ) && method_exists( $component_data[ 'object' ], 'admin_assets' ) )
-                add_action( 'admin_print_styles-' . $page, array( $component_data[ 'object' ], 'admin_assets' ) );
-        }
+			if ( isset( $menu_data[ 'assets' ] ) && is_callable( $menu_data[ 'assets' ] ) ) {
+                add_action( 'admin_print_styles-' . $page, $menu_data[ 'assets' ] );
+			}
+		}
 
         if ( !empty( $custom_component_menus ) ) {
             foreach ( $custom_component_menus as $menu_page => $component_data ) {

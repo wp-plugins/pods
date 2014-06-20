@@ -180,11 +180,35 @@ class Pods implements Iterator {
 	 * @link http://pods.io/docs/pods/
 	 */
 	public function __construct ( $pod = null, $id = null ) {
-		if ( null === $pod  ) {
-			$pod = get_post_type();
+		if ( null === $pod ) {
+			$queried_object = get_queried_object();
 
-			if ( null === $id )
-				$id = get_the_ID();
+			if ( $queried_object ) {
+				$id_lookup = true;
+
+				// Post Type Singular
+				if ( isset( $queried_object->post_type ) ) {
+					$pod = $queried_object->post_type;
+				}
+				// Term Archive
+				elseif ( isset( $queried_object->taxonomy ) ) {
+					$pod = $queried_object->taxonomy;
+				}
+				// Author Archive
+				elseif ( isset( $queried_object->user_login ) ) {
+					$pod = 'user';
+				}
+				// Post Type Archive
+				elseif ( isset( $queried_object->public ) && isset( $queried_object->name ) ) {
+					$pod = $queried_object->name;
+
+					$id_lookup = false;
+				}
+
+				if ( null === $id && $id_lookup ) {
+					$id = get_queried_object_id();
+				}
+			}
 		}
 
 		$this->api = pods_api( $pod );
@@ -3321,8 +3345,19 @@ class Pods implements Iterator {
 			$thank_you = pods_var_update( array( 'success*' => null, $success => 1 ) );
 
 			if ( 1 == pods_var( $success, 'get', 0 ) ) {
-				echo '<div id="message" class="pods-form-front-success">'
-					 . __( 'Form submitted successfully', 'pods' ) . '</div>';
+				$message = __( 'Form submitted successfully', 'pods' );
+				/**
+				 * Change the text of the message that appears on succesful form submission.
+				 *
+				 * @param string $message
+				 *
+				 * @returns string the message
+				 *
+				 * @since 3.0.0
+				 */
+				$message = apply_filters( 'pods_pod_form_success_message', $message );
+
+				echo '<div id="message" class="pods-form-front-success">' . $message . '</div>';
 			}
 		}
 

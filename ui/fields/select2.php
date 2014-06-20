@@ -52,7 +52,7 @@ $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true
                     $data = array();
 
                     foreach ( $options[ 'data' ] as $item_id => $item ) {
-                        $data[] = '\'' . esc_js( $item_id ) . '\' : {id : \'' . esc_js( $item_id ) . '\', text: \'' . esc_js( $item ) . '\'}';
+                        $data[] = '\'' . esc_js( $item_id ) . '\' : {id : \'' . esc_js( $item_id ) . '\', text: \'' . str_replace( '&amp;', '&', esc_js( $item ) ) . '\'}';
                     }
 
                     echo implode( ",\n", $data );
@@ -67,10 +67,40 @@ $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true
 			?>
 				tags : true,
 				createSearchChoice : function( term, data ) {
+					var $dropdown;
+
+					// Get a reference to the dropdown container
+					// the dropdown method is not available before v3.4.1
+					try {
+						$dropdown = $element.select2( 'dropdown' );
+					}
+					catch ( e ) {
+						$dropdown = $( '.select2-drop-active' );
+					}
+
+					// Only show the dropdown if there is at least one unselected potential match
+					$dropdown.hide();
+
+					// Any potential matches?
+					if ( !$.isEmptyObject( data ) ) {
+
+						// If there are any unselected potential matches then we want to show the dropdown
+						$.each( data, function( i, this_element ) {
+
+							// Is this one unselected?
+							// 'val' return will be an array of string ids
+							if ( 0 > $element.select2( 'val' ).indexOf( this_element.id + '' ) ) {
+								$dropdown.show();
+								return false; // Break out of the each loop
+							}
+						} );
+					}
+
+					// Not an exact match for something existing?
 					if ( 0 === $( data ).filter( function() { return this.text.localeCompare( term.trim() ) === 0; } ).length ) {
 						return {
-						// Simply use the new tag term as the id
-						//we might want to append 'new' to all newly created term IDs for processing in PodsAPI.php
+							// Simply use the new tag term as the id
+							//we might want to append 'new' to all newly created term IDs for processing in PodsAPI.php
 							id: term.trim(),
 							text: term.trim()
 						};
@@ -143,7 +173,7 @@ $options[ 'data' ] = (array) pods_var_raw( 'data', $options, array(), null, true
                         $data_items = array();
 
                         foreach ( $options[ 'data' ] as $item_id => $item ) {
-                            $data_items[] = '{id : \'' . esc_js( $item_id ) . '\', text: \'' . esc_js( $item ) . '\'}';
+                            $data_items[] = '{id : \'' . esc_js( $item_id ) . '\', text: \'' . str_replace( '&amp;', '&', esc_js( $item ) ) . '\'}';
                         }
 
                         echo implode( ",\n", $data_items );
